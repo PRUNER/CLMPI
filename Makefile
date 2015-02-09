@@ -7,7 +7,7 @@ include ./Makefile.config
 #          libpb_copy1.so libpb_copy2.so
 
 MOD    =  libpbdriver.so \
-	  libclock_mpi.so \
+	  libclmpi.so \
 	  libpb_datatype1.so \
 	  libpb_datatype2.so 
 
@@ -32,9 +32,9 @@ pb_dt.o:
 .cpp.o:
 	$(MPIXX) -c $(CFLAGS) $<
 
-libclock_mpi.o: clock_mpi.cpp
+libclmpi.o: clmpi.cpp
 	$(MPICC) -c $(CFLAGS) -DPBDRIVER_CHECK $<
-	mv clock_mpi.o libclock_mpi.o
+	mv clmpi.o libclmpi.o
 
 libpbdriver.o: pbdriver.c
 	$(MPICC) -c $(CFLAGS) -DPBDRIVER_CHECK $<

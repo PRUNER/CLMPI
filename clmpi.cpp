@@ -8,7 +8,6 @@
 #include "requests.h"
 #include "pb_mod.h"
 
-
 #define PNMPI_MODULE_PBD "mpi_clock"
 
 #define PB_PATTERN 0x42434445
