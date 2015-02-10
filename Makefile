@@ -11,7 +11,7 @@ MOD    =  libpbdriver.so \
 	  libpb_datatype1.so \
 	  libpb_datatype2.so 
 
-HEADER = pb_mod.h 
+HEADER = pb_mod.h clmpi.h
 
 CFLAGS += -I$(PNMPI_INC_PATH) 
 CCFLAGS += -I$(PNMPI_INC_PATH)

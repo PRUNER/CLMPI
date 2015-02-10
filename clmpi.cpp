@@ -7,17 +7,14 @@
 #include "status.h"
 #include "requests.h"
 #include "pb_mod.h"
-
-#define PNMPI_MODULE_PBD "mpi_clock"
-
-#define PB_PATTERN 0x42434445
+#include "clmpi.h"
 
 
 int pb_int = 0;
 int run_check=1;
 int run_set=1;
 
-size_t local_clock=0;
+size_t local_clock=10;
 size_t local_tick =0;
 char *pbdata;
 int rank = -1;
@@ -31,7 +28,7 @@ int rank = -1;
 #define PBCHECKARRAY(res,status,count,num) { \
   if (res==MPI_SUCCESS) \
     { \
-      if ((STATUS_STORAGE_ARRAY(status,*pb_offset,*TotalStatusExtension,int,count,num)!=PB_PATTERN) || (0) )\ 
+      if ((STATUS_STORAGE_ARRAY(status,*pb_offset,*TotalStatusExtension,int,count,num)!=PB_PATTERN) || (0) ) \
 	printf("Received wrong pattern %08x\n",\
 	       STATUS_STORAGE_ARRAY(status,*pb_offset,*TotalStatusExtension,int,count,num));\
     } }
@@ -44,7 +41,7 @@ int rank = -1;
 PNMPIMOD_Piggyback_t       pb_set;
 PNMPIMOD_Piggyback_Size_t  pb_setsize;
 static int *pb_offset;
-static int pb_size=4;
+static int pb_size=sizeof(size_t);
 static int *TotalStatusExtension;
 static int *StatusOffsetInRequest;
 
@@ -55,28 +52,23 @@ static int *StatusOffsetInRequest;
 /*------------------------------------------------------------*/
 /* External service routines */
 
-size_t *cmpi_local_clock;
-size_t *cmpi_received_local_clock;
-size_t *cmpi_global_clock;
+size_t *registered_buff_clocks = NULL;
+int     registered_buff_length = -1;
 
-int PNMPIMOD_register_local_clock(size_t *local_clock)
+int PNMPIMOD_get_recv_clocks(int *local_clock, int length)
 { 
-  cmpi_local_clock = local_clock;
   return MPI_SUCCESS;
 }
 
-int PNMPIMOD_register_latest_received_local_clock(size_t *received_local_clock)
+int PNMPIMOD_register_recv_clocks(size_t *clocks, int length)
 { 
-  cmpi_received_local_clock = received_local_clock;
+  registered_buff_clocks = clocks;
+  registered_buff_length = length;
+  for (int i = 0; i < length; i++) {
+    registered_buff_clocks[i] = 1;
+  }
   return MPI_SUCCESS;
 }
-
-int PNMPIMOD_register_global_clock(size_t *global_clock)
-{ 
-  cmpi_global_clock = global_clock;
-  return MPI_SUCCESS;
-}
-
 
 char** cmpi_btrace() 
 {
@@ -113,11 +105,18 @@ void cmpi_sync_clock_at(MPI_Status *status, int count, int matched_index)
 {
   size_t sender_clock;		
   sender_clock = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, count, matched_index);
-  fprintf(stderr, "%lu\t%d\t",sender_clock, status[matched_index].MPI_SOURCE);
-  cmpi_pring_addr();
-  fprintf(stderr, "\t%lu\t|%d|\n", local_clock, rank);
+  if (registered_buff_clocks != NULL) {
+    if (registered_buff_length != count) {
+      fprintf(stderr, "Registered clock buffufer lengths (%d) is different to incount (%d)", 
+		registered_buff_length, count);
+    }
+    registered_buff_clocks[matched_index] = sender_clock;
+  }
+  //  fprintf(stderr, "%lu\t%d\t",sender_clock, status[matched_index].MPI_SOURCE);
+  //  cmpi_pring_addr();
+  //  fprintf(stderr, "\t%lu\t|%d|\n", local_clock, rank);
   if (local_clock < sender_clock) {
-    //    local_clock = sender_clock;	
+    local_clock = sender_clock;	
   }
   return; 
 }
@@ -130,7 +129,7 @@ void cmpi_sync_clock(MPI_Status *status)
 
 void cmpi_set_tick()
 {
-#if 1
+#if 0
   int ticks[] = {
     100,
     100,
@@ -175,49 +174,26 @@ int PNMPI_RegistrationPoint()
   PNMPI_Global_descriptor_t global;
   /* register this module and its services */
 
-  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_PBD);
-  if (err!=PNMPI_SUCCESS)
+  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_CLMPI);
+  if (err!=PNMPI_SUCCESS) {
     return MPI_ERROR_PNMPI;
+  }
 
-  sprintf(service.name,"cmpi_register_local_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_local_clock;
-  sprintf(service.sig,"p");
+  sprintf(service.name,"clmpi_register_recv_clocks");
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_recv_clocks;
+  sprintf(service.sig,"pi");
   err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
+  if (err!=PNMPI_SUCCESS) {
     return MPI_ERROR_PNMPI;
-
-  sprintf(service.name,"cmpi_register_received_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_latest_received_local_clock;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
-
-  sprintf(service.name,"cmpi_register_global_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_global_clock;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+  }
 
   return err;
 }
 
-
-
-
 /*.......................................................*/
-/* Init */
+/* Init PNMPI*/
 
-
-int MPI_Init(int *argc, char ***argv)
-{
-  fprintf(stderr, "Sorry not supported in clock mpi\n");
-  exit(0);
-}
-
-int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
-{
+int cmpi_init_pnmpi() {
   int err;
   PNMPI_modHandle_t handle_pb,handle_pbd,handle_status,handle_req;
   PNMPI_Service_descriptor_t serv;
@@ -273,48 +249,13 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 
   /* query own module */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_PBD,&handle_pbd);
+  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_CLMPI, &handle_pbd);
   if (err!=PNMPI_SUCCESS)
     return err;
 
-  err=PNMPI_Service_GetArgument(handle_pbd,"size",&vlevel_s);
-  if (err!=PNMPI_SUCCESS)
-    {
-      if (err==PNMPI_NOARG)
-	pb_size= sizeof(size_t);
-      else
-	return err;
-    }
-  else
-    {
-      pb_size=atoi(vlevel_s);
-    }
-
-  err=PNMPI_Service_GetArgument(handle_pbd,"set",&vlevel_s);
-  if (err!=PNMPI_SUCCESS)
-    {
-      if (err==PNMPI_NOARG)
-	run_set=1;
-      else
-	return err;
-    }
-  else
-    {
-      run_set=atoi(vlevel_s);
-    }
-
-  err=PNMPI_Service_GetArgument(handle_pbd,"check",&vlevel_s);
-  if (err!=PNMPI_SUCCESS)
-    {
-      if (err==PNMPI_NOARG)
-	run_check=1;
-      else
-	return err;
-    }
-  else
-    {
-      run_check=atoi(vlevel_s);
-    }
+  pb_size= sizeof(size_t);
+  run_set=1;
+  run_check=1;
 
   err=pb_setsize(pb_size);
   if (err!=PNMPI_SUCCESS)
@@ -323,12 +264,36 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   pbdata=(char *)malloc(pb_size);
   if (pbdata==NULL) return MPI_ERROR_MEM;
 
-  /* printf("Piggyback driver enabled with size %i (set %i, check %i)\n", */
-  /* 	 pb_size,run_set,run_check); */
+}
+
+
+/*.......................................................*/
+/* Init */
+
+
+int MPI_Init(int *argc, char ***argv)
+{
+  int err;
+  int provided;
+
+  cmpi_init_pnmpi();
+
+  err = PMPI_Init(argc, argv);
+
+  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  cmpi_set_tick();
+  return err;
+}
+
+int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
+{
+  int err;
+
+  cmpi_init_pnmpi();
 
   err = PMPI_Init_thread(argc,argv, required, provided);
-  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
   cmpi_set_tick();
   return err;
 }
@@ -344,6 +309,7 @@ int MPI_Send(void* buf, int num, MPI_Datatype dtype, int node,
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
+  local_clock++;
   return res;
 }
 
@@ -353,6 +319,7 @@ int MPI_Bsend(void* buf, int num, MPI_Datatype dtype, int node,
   int res;
   PBSET;
   res=PMPI_Bsend(buf,num,dtype,node,tag,comm);
+  local_clock++;
   return res;
 }
 
@@ -362,6 +329,7 @@ int MPI_Ssend(void* buf, int num, MPI_Datatype dtype, int node,
   int res;
   PBSET;
   res=PMPI_Ssend(buf,num,dtype,node,tag,comm);
+  local_clock++;
   return res;
 }
 
@@ -371,6 +339,7 @@ int MPI_Rsend(void* buf, int num, MPI_Datatype dtype, int node,
   int res;
   PBSET;
   res=PMPI_Rsend(buf,num,dtype,node,tag,comm);
+  local_clock++;
   return res;
 }
 
@@ -389,6 +358,7 @@ int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
   int err;
   PBSET;
   err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
+  local_clock++;
   return err;
 }
 
@@ -405,6 +375,7 @@ int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
   int err;
   PBSET;
   err=PMPI_Irsend(buf,count,datatype,dest,tag,comm,request);
+  local_clock++;
   return err;
 }
 
@@ -517,6 +488,8 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
     }
   }
+  registered_buff_clocks = NULL;
+  registered_buff_length = -1;
   return err;
 }
 
@@ -530,6 +503,8 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
     }
   }
+  registered_buff_clocks = NULL;
+  registered_buff_length = -1;
   return err;  
 }
 
@@ -545,14 +520,8 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
       }
     }
   }
-  if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count, 0).inreq!=MPI_REQUEST_NULL) {
-    if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count, 0).type==PNMPIMOD_REQUESTS_RECV) {
-      if (*outcount > 0) {
-	fprintf(stderr, "--- count: %d -------- |%d|\n", *outcount, rank);
-      } 
-    }
-  }
-  
+  registered_buff_clocks = NULL;
+  registered_buff_length = -1;
   //  local_clock += local_tick;
   return err;  
 }
@@ -571,6 +540,8 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
       }
     }
   }
+  registered_buff_clocks = NULL;
+  registered_buff_length = -1;
 
   return err;
 }
