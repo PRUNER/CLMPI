@@ -1639,7 +1639,9 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
   int err,i;
   PACK_ERR_DECLARE_A();
 
+
   err=PMPI_Testsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
+
 
   if (*outcount!=MPI_UNDEFINED)
     {

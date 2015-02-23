@@ -14,8 +14,9 @@ int pb_int = 0;
 int run_check=1;
 int run_set=1;
 
-size_t local_clock=10;
-size_t local_tick =0;
+
+size_t local_clock= PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
+size_t local_tick = 0;
 char *pbdata;
 int rank = -1;
 
@@ -488,7 +489,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
     } else {
       if (err == MPI_SUCCESS) {
-	registered_buff_clocks[0] = 1;
+	registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
 	fprintf(stderr, "[1 |%d|]\n", 1, status->MPI_SOURCE);
       }
     }
@@ -517,7 +518,9 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 {
   int err,i;
 
+
   err=PMPI_Testsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
+
   if (run_check==0) return err;
 #if 0
   if (*outcount > 0) {
@@ -532,7 +535,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 	if (err == MPI_SUCCESS) {
 	  int matched_index;
 	  matched_index = array_of_indices[i];
-	  registered_buff_clocks[matched_index] = 1;
+	  registered_buff_clocks[matched_index] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
 	  //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
 	}
       }
