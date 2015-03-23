@@ -1,6 +1,9 @@
+#include "unordered_map"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <execinfo.h>
+#include <unistd.h>
 
 #include "mpi.h"
 #include "pnmpimod.h"
@@ -9,6 +12,7 @@
 #include "pb_mod.h"
 #include "clmpi.h"
 
+using namespace std;
 
 int pb_int = 0;
 int run_check=1;
@@ -18,7 +22,7 @@ int run_set=1;
 size_t local_clock= PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
 size_t local_tick = 0;
 char *pbdata;
-int rank = -1;
+int my_rank = -1;
 
 #define PBSET \
   if (run_set) { \
@@ -56,6 +60,36 @@ static int *StatusOffsetInRequest;
 size_t *registered_buff_clocks = NULL;
 int     registered_buff_length = -1;
 int     sync_clock = 1;
+unordered_map<MPI_Request, MPI_Request*> irecv_request_map;
+//unordered_map<int,int> irecv_request_map;
+
+void clmpi_init_registered_clocks(MPI_Request *request, int length) {
+  if (registered_buff_clocks == NULL) {
+    fprintf(stderr, "CLMPI: registered clock is NULL\n");
+    *registered_buff_clocks = 1;
+    exit(1);
+  }
+
+  for (int i = 0; i < length; i++) {
+    if (irecv_request_map.find(request[i]) != irecv_request_map.end()) {
+      /*If this reuquest[i] is from irecv*/
+      registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_UNMATCHED_RECV_REQ_CLOCK;
+    } else {
+      /*If this reuquest[i] is from isend*/
+      registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+    }    
+    //    fprintf(stderr, "Init: request[%d] = %lu\n",i , registered_buff_clocks[i]);
+  }
+  
+}
+
+void clmpi_irecv_test_erase(MPI_Request request) {
+  if (irecv_request_map.find(request) == irecv_request_map.end()) {
+    fprintf(stderr, "CLMPI: request: %p does not exist", request);
+    exit(1);
+  }
+  irecv_request_map.erase(request);
+}
 
 void clmpi_update_clock(size_t recv_clock) {
   if (sync_clock) {
@@ -64,7 +98,7 @@ void clmpi_update_clock(size_t recv_clock) {
       local_clock = recv_clock;	
     }
     local_clock++;
-    //    if (rank == 0) fprintf(stderr, " to clock: %d\n", local_clock);
+    //    if (my_rank == 0) fprintf(stderr, " to clock: %d\n", local_clock);
   }
 }
 
@@ -123,7 +157,6 @@ char** cmpi_btrace()
 
 
 
-
 void cmpi_pring_addr()
 {
   char **strings;
@@ -142,11 +175,11 @@ void cmpi_sync_clock_at(MPI_Status *status, int count, int i, int matched_index)
 		registered_buff_length, count);
     }
     registered_buff_clocks[matched_index] = sender_clock;
-    //    fprintf(stderr, "ReMPI:%d: [%d |%d|] update index: %d \n", rank, sender_clock, status[i].MPI_SOURCE, matched_index);
+    //    fprintf(stderr, "ReMPI:%d: [%d |%d|] update index: %d \n", my_rank, sender_clock, status[i].MPI_SOURCE, matched_index);
   }
   //  fprintf(stderr, "%lu\t%d\t",sender_clock, status[i].MPI_SOURCE);
   //  cmpi_pring_addr();
-  //  fprintf(stderr, "\t%lu\t|%d|\n", local_clock, rank);
+  //  fprintf(stderr, "\t%lu\t|%d|\n", local_clock, my_rank);
   clmpi_update_clock(sender_clock);
   return; 
 }
@@ -188,7 +221,7 @@ void cmpi_set_tick()
   };
 #endif
 
-  local_tick = 1; //ticks[rank];
+  local_tick = 1; //ticks[my_rank];
 }
 
 
@@ -334,7 +367,7 @@ int MPI_Init(int *argc, char ***argv)
 
   err = PMPI_Init(argc, argv);
 
-  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
   return err;
 }
@@ -347,7 +380,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 
   err = PMPI_Init_thread(argc,argv, required, provided);
 
-  PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
   return err;
 }
@@ -363,9 +396,7 @@ int MPI_Send(void* buf, int num, MPI_Datatype dtype, int node,
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
-  //  if (rank == 0) fprintf(stderr, "Send: clock: %d", local_clock);
   local_clock++;
-  //  if (rank == 0) fprintf(stderr, " to clock: %d\n", local_clock);
   return res;
 }
 
@@ -404,7 +435,10 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   int err;
   PBSET;
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
+  // if (my_rank == 3) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %d\n", *request, my_rank, dest, tag, local_clock);
+  // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
+
   local_clock++;
   return err;
 }
@@ -440,7 +474,14 @@ int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
 /*.......................................................*/
 /* Checks if enabled */
 
-
+int MPI_Irecv(void* buf, int num, MPI_Datatype dtype, int node,
+	      int tag, MPI_Comm comm, MPI_Request *request)
+{
+  int err;
+  err=PMPI_Irecv(buf,num,dtype,node,tag,comm, request);
+  irecv_request_map[*request] = request;  
+  return err;
+}
 
 int MPI_Recv(void* buf, int num, MPI_Datatype dtype, int node,
              int tag, MPI_Comm comm, MPI_Status *status)
@@ -478,11 +519,13 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, 
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
   int err;
+  clmpi_init_registered_clocks(request, 1);
   err=PMPI_Wait(request,status);
   if (run_check==0) return err;
   if (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
 	  if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
       }
   }
   return err;
@@ -492,11 +535,13 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
 {
   int err;
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitany(count,array_of_requests,index,status);
   if (run_check==0) return err;
   if (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
 	  if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
       }
   }
   return err;
@@ -505,12 +550,14 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
 int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *array_of_indices, MPI_Status *array_of_statuses)
 {
   int err,i;
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
   if (run_check==0) return err;
   for (i=0; i<*outcount; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)  {
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, array_of_indices[i]); 
+	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       }
     }
   }
@@ -521,12 +568,17 @@ int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_statuses)
 {
   int err,i;
+
+  //TODO: for now, I moved this function call into the loop #1
+  //  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitall(count,array_of_requests,array_of_statuses);
   if (run_check==0) return err;
   for (i=0; i<count; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL)  {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)   {
+	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
+	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       }
     }
   }
@@ -537,20 +589,39 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
   int err;
+  clmpi_init_registered_clocks(request, 1);
   err=PMPI_Test(request, flag, status);
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+      clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
       if (err == MPI_SUCCESS) {
 	if (registered_buff_clocks != NULL) {
 	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
 	  //	  fprintf(stderr, "[1 |%d|]\n", 1, status->MPI_SOURCE);
+	}  else {
+	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
+	  exit(1);
 	}
       }
     }
   }
+
+  /*COMM_REQ_FROM_STATUS(status).type works for only matched message -> so coment out*/
+  /*
+  if (*flag == 0) {
+    if (!(COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV)) {
+      if (registered_buff_clocks == NULL) {
+  	fprintf(stderr, "registered_buff_clocks is NULL\n" );
+  	exit(1);
+      }
+      registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+    }
+  }
+  */
+
   registered_buff_clocks = NULL;
   registered_buff_length = -1;
   return err;
@@ -559,21 +630,40 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag, MPI_Status *status)
 {
   int err;
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testany(count,array_of_requests,index,flag,status);
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+      clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
       if (err == MPI_SUCCESS) {
 	int matched_index;
 	if (registered_buff_clocks != NULL) {
 	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
-	  //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
+	  //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", my_rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
+	}  else {
+	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
+	  exit(1);
 	}
       }
     }
   }
+
+  /*COMM_REQ_FROM_STATUS(status).type works for only matched message -> so coment out*/
+  /*
+  if (*flag == 0) {
+    if (!(COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV)) {
+      if (registered_buff_clocks == NULL) {
+  	fprintf(stderr, "registered_buff_clocks is NULL\n" );
+  	exit(1);
+      }
+      registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+    }
+  }
+  */
+
   registered_buff_clocks = NULL;
   registered_buff_length = -1;
   return err;  
@@ -583,26 +673,31 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 {
   int err,i;
 
-
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
 
   if (run_check==0) return err;
 #if 0
   if (*outcount > 0) {
-        fprintf(stderr, "ReMPI:%d: outcount: %d\n", rank, *outcount);
+        fprintf(stderr, "ReMPI:%d: outcount: %d\n", my_rank, *outcount);
   }
 #endif
   for (i=0; i<*outcount; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL) {
+      // if (rank == 1) fprintf(stderr, "satatus checking ! %d %d %d\n", COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type, 
+      // 			     PNMPIMOD_REQUESTS_RECV, PNMPIMOD_REQUESTS_SEND);
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV) {
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, array_of_indices[i]); 
+	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       } else {
 	if (err == MPI_SUCCESS) {
 	  int matched_index;
 	  matched_index = array_of_indices[i];
-	  if (registered_buff_clocks != NULL) {
+	  if (registered_buff_clocks != NULL) { 
 	    registered_buff_clocks[matched_index] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
-	    //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
+	  } else {
+	    fprintf(stderr, "registered_buff_clocks is NULL\n" );
+	    exit(1);
 	  }
 	}
       }
@@ -611,6 +706,23 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
       exit(1);
     }
   }
+
+  /*COMM_REQ_FROM_STATUS(status).type works for only matched message -> so coment out*/
+  /*
+  if (*outcount == 0) {
+    for (i = 0; i < count; i++) {
+      if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type != PNMPIMOD_REQUESTS_RECV ) {
+  	if (registered_buff_clocks == NULL) {
+  	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
+  	  exit(1);
+  	}
+  	registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+	if (my_rank == 1) fprintf(stderr, "NOOOOOOOOOO ! %d %d %d\n", COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type, 
+			       PNMPIMOD_REQUESTS_RECV, PNMPIMOD_REQUESTS_SEND);
+      }
+    }
+  }
+  */
 
   registered_buff_clocks = NULL;
   registered_buff_length = -1;
@@ -621,6 +733,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status *array_of_statuses)
 {
   int err,i;
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testall(count, array_of_requests, flag, array_of_statuses);
   if (run_check==0) return err;
   if (*flag)  {
@@ -628,29 +741,56 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL)  {
 	if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV) {
 	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
+	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
 	} else {
 	  if (err == MPI_SUCCESS) {
 	    if (registered_buff_clocks != NULL) {
 	      registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
-	      //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
+	      //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", my_rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
+	    }  else {
+	      fprintf(stderr, "registered_buff_clocks is NULL\n" );
+	      exit(1);
 	    }
 	  }
 	}
       } 
     }
   }
+
+  /*COMM_REQ_FROM_STATUS(status).type works for only matched message -> so coment out*/
+  /*
+  if (*flag == 0) {
+    for (i = 0; i < count; i++) {
+      if (!(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)) {
+  	if (registered_buff_clocks == NULL) {
+  	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
+  	  exit(1);
+  	}
+  	registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+      }
+    }
+  }
+  */
+
   registered_buff_clocks = NULL;
   registered_buff_length = -1;
 
   return err;
 }
 
+int MPI_Get_count(MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2) {
+  int _wrap_py_return_val = 0;
+  {
+    /*TODO: arg_2 include piggyback message size, so subtract the size
+     for now, we subtract in REMPI level, not here*/
+    _wrap_py_return_val = PMPI_Get_count(arg_0, arg_1, arg_2);
+  }    return _wrap_py_return_val;
+}
+
 
 int MPI_Finalize()
 {
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  //  fprintf(stderr, "clock: %d %d\n", local_clock, rank);
+  //  fprintf(stderr, "clock: %d %d\n", local_clock, my_rank);
   return PMPI_Finalize();
 
 }

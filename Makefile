@@ -13,7 +13,7 @@ MOD    =  libpbdriver.so \
 
 HEADER = pb_mod.h clmpi.h
 
-CFLAGS += -I$(PNMPI_INC_PATH) 
+CFLAGS += -I$(PNMPI_INC_PATH) -std=c++0x
 CCFLAGS += -I$(PNMPI_INC_PATH)
 
 all: $(MOD) 
