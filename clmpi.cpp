@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <execinfo.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "mpi.h"
 #include "pnmpimod.h"
@@ -61,7 +62,6 @@ size_t *registered_buff_clocks = NULL;
 int     registered_buff_length = -1;
 int     sync_clock = 1;
 unordered_map<MPI_Request, MPI_Request*> irecv_request_map;
-//unordered_map<int,int> irecv_request_map;
 
 void clmpi_init_registered_clocks(MPI_Request *request, int length) {
   if (registered_buff_clocks == NULL) {
@@ -70,12 +70,19 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
     exit(1);
   }
 
+
+
   for (int i = 0; i < length; i++) {
+    // if (my_rank != 0) {
+    //   fprintf(stderr, "i: %d/%d: rank: %d:  siez:%d \n", i, length, my_rank, irecv_request_map.size());
+    // }
     if (irecv_request_map.find(request[i]) != irecv_request_map.end()) {
       /*If this reuquest[i] is from irecv*/
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_UNMATCHED_RECV_REQ_CLOCK;
     } else {
       /*If this reuquest[i] is from isend*/
+      // fprintf(stderr, "rank: %d: nooo request: %p siez:%d \n", my_rank, request[i], irecv_request_map.size());
+      // exit(1);
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
     }    
     //    fprintf(stderr, "Init: request[%d] = %lu\n",i , registered_buff_clocks[i]);
@@ -89,6 +96,7 @@ void clmpi_irecv_test_erase(MPI_Request request) {
     exit(1);
   }
   irecv_request_map.erase(request);
+  //  fprintf(stderr, "rank: %d: erase request: %p size: %d\n", my_rank, request, irecv_request_map.size());
 }
 
 void clmpi_update_clock(size_t recv_clock) {
@@ -480,6 +488,8 @@ int MPI_Irecv(void* buf, int num, MPI_Datatype dtype, int node,
   int err;
   err=PMPI_Irecv(buf,num,dtype,node,tag,comm, request);
   irecv_request_map[*request] = request;  
+  //  fprintf(stderr, "rank: %d: registered request: %p size: %d\n", my_rank, *request, irecv_request_map.size());
+
   return err;
 }
 
@@ -702,7 +712,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 	}
       }
     } else {
-      fprintf(stderr, "NOoooo in clmpi.cpp\n");
+      fprintf(stderr, "request is NULL in testsome of clmpi.cpp\n");
       exit(1);
     }
   }
