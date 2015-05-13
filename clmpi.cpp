@@ -183,7 +183,7 @@ void cmpi_sync_clock_at(MPI_Status *status, int count, int i, int matched_index)
 		registered_buff_length, count);
     }
     registered_buff_clocks[matched_index] = sender_clock;
-    //    fprintf(stderr, "ReMPI:%d: [%d |%d|] update index: %d \n", my_rank, sender_clock, status[i].MPI_SOURCE, matched_index);
+    //    if (my_rank == 1)fprintf(stderr, "ReMPI:%d: [%d |%d|] update index: %d count %d\n", my_rank, sender_clock, status[i].MPI_SOURCE, matched_index, count);
   }
   //  fprintf(stderr, "%lu\t%d\t",sender_clock, status[i].MPI_SOURCE);
   //  cmpi_pring_addr();
@@ -443,7 +443,7 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   int err;
   PBSET;
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
-  // if (my_rank == 3) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %d\n", *request, my_rank, dest, tag, local_clock);
+  //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
 
@@ -580,13 +580,13 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
   int err,i;
 
   //TODO: for now, I moved this function call into the loop #1
-  //  clmpi_init_registered_clocks(array_of_requests, count);
+  clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitall(count,array_of_requests,array_of_statuses);
   if (run_check==0) return err;
   for (i=0; i<count; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL)  {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)   {
-	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
+	//	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       }
