@@ -19,16 +19,27 @@ int pb_int = 0;
 int run_check=1;
 int run_set=1;
 
+struct pb_clocks{
+  size_t local_clock;
+  size_t next_clock;
+  size_t trigger_clock;
+};
 
-size_t local_clock= PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
+struct pb_clocks pb_clocks_t = {
+  .local_clock   = PNMPI_MODULE_CLMPI_INITIAL_CLOCK, 
+  .next_clock    = PNMPI_MODULE_CLMPI_INITIAL_CLOCK, 
+  .trigger_clock = PNMPI_MODULE_CLMPI_INITIAL_CLOCK};
+
+//size_t local_clock= PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
 size_t local_tick = 0;
 char *pbdata;
 int my_rank = -1;
 
 #define PBSET \
   if (run_set) { \
-  ((size_t*)pbdata)[0]=local_clock;		\
-  pb_set(pb_size, pbdata);}
+    pbdata = (char*)(&pb_clocks_t); \
+    pb_set(pb_size, pbdata); \
+  }
 
 
 #define PBCHECKARRAY(res,status,count,num) { \
@@ -47,7 +58,7 @@ int my_rank = -1;
 PNMPIMOD_Piggyback_t       pb_set;
 PNMPIMOD_Piggyback_Size_t  pb_setsize;
 static int *pb_offset;
-static int pb_size=sizeof(size_t);
+static int pb_size=sizeof(struct pb_clocks);
 static int *TotalStatusExtension;
 static int *StatusOffsetInRequest;
 
@@ -100,10 +111,10 @@ void clmpi_irecv_test_erase(MPI_Request request) {
 void clmpi_update_clock(size_t recv_clock) {
   if (sync_clock) {
     //    if (rank == 0) fprintf(stderr, "Recv: clock: %d", local_clock);
-    if (local_clock <= recv_clock) {
-      local_clock = recv_clock;	
+    if (pb_clocks_t.local_clock <= recv_clock) {
+      pb_clocks_t.local_clock = recv_clock;	
     }
-    local_clock++;
+    pb_clocks_t.local_clock++;
     //    if (my_rank == 0) fprintf(stderr, " to clock: %d\n", local_clock);
   }
 }
@@ -135,7 +146,7 @@ int PNMPIMOD_sync_clock(size_t recv_clock)
 
 int PNMPIMOD_get_local_clock(size_t *clock)
 { 
-  *clock = local_clock;
+  *clock = pb_clocks_t.local_clock;
   return MPI_SUCCESS;
 }
 
@@ -230,6 +241,10 @@ void cmpi_set_tick()
   local_tick = 1; //ticks[my_rank];
 }
 
+void cmpi_create_window()
+{
+
+}
 
 
 
@@ -377,9 +392,9 @@ int MPI_Init(int *argc, char ***argv)
 
   err = PMPI_Init(argc, argv);
 
-
   PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
+  cmpi_create_window();
   return err;
 }
 
@@ -393,6 +408,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 
   PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
+  cmpi_create_window();
   return err;
 }
 
@@ -410,7 +426,7 @@ int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MP
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return res;
 }
 
@@ -423,7 +439,7 @@ int MPI_Bsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   int res;
   PBSET;
   res=PMPI_Bsend(buf,num,dtype,node,tag,comm);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return res;
 }
 
@@ -436,7 +452,7 @@ int MPI_Ssend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   int res;
   PBSET;
   res=PMPI_Ssend(buf,num,dtype,node,tag,comm);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return res;
 }
 
@@ -449,7 +465,7 @@ int MPI_Rsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   int res;
   PBSET;
   res=PMPI_Rsend(buf,num,dtype,node,tag,comm);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return res;
 }
 
@@ -466,7 +482,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
 
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return err;
 }
 
@@ -479,7 +495,7 @@ int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return err;
 }
 
@@ -492,7 +508,7 @@ int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Issend(buf,count,datatype,dest,tag,comm,request);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return err;
 }
 
@@ -505,7 +521,7 @@ int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Irsend(buf,count,datatype,dest,tag,comm,request);
-  local_clock++;
+  pb_clocks_t.local_clock++;
   return err;
 }
 
