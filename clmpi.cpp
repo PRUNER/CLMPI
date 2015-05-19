@@ -70,8 +70,6 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
     exit(1);
   }
 
-
-
   for (int i = 0; i < length; i++) {
     // if (my_rank != 0) {
     //   fprintf(stderr, "i: %d/%d: rank: %d:  siez:%d \n", i, length, my_rank, irecv_request_map.size());
@@ -250,6 +248,7 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 
+  /*Speicfy buffer for clock*/
   sprintf(service.name,"clmpi_register_recv_clocks");
   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_recv_clocks;
   sprintf(service.sig,"pi");
@@ -258,6 +257,7 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 
+  /*Disable/Enable ticking*/
   sprintf(service.name,"clmpi_clock_control");
   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_clock_control;
   sprintf(service.sig,"i");
@@ -266,6 +266,7 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 
+  /*Sync and update local clock given received clock*/
   sprintf(service.name,"clmpi_sync_clock");
   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_sync_clock;
   sprintf(service.sig,"i");
@@ -274,6 +275,7 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 
+  /*Get local clock*/
   sprintf(service.name,"clmpi_get_local_clock");
   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_clock;
   sprintf(service.sig,"p");
@@ -375,6 +377,7 @@ int MPI_Init(int *argc, char ***argv)
 
   err = PMPI_Init(argc, argv);
 
+
   PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
   return err;
@@ -398,8 +401,11 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 /* setting PB if enabled */
 
 
-int MPI_Send(void* buf, int num, MPI_Datatype dtype, int node, 
-	     int tag, MPI_Comm comm)
+#if MPI_VERSION == 1
+int MPI_Send(void *buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#else
+int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#endif
 {
   int res;
   PBSET;
@@ -408,8 +414,11 @@ int MPI_Send(void* buf, int num, MPI_Datatype dtype, int node,
   return res;
 }
 
-int MPI_Bsend(void* buf, int num, MPI_Datatype dtype, int node, 
-	     int tag, MPI_Comm comm)
+#if MPI_VERSION == 1
+int MPI_Bsend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#else
+int MPI_Bsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#endif
 {
   int res;
   PBSET;
@@ -418,8 +427,11 @@ int MPI_Bsend(void* buf, int num, MPI_Datatype dtype, int node,
   return res;
 }
 
-int MPI_Ssend(void* buf, int num, MPI_Datatype dtype, int node, 
-	     int tag, MPI_Comm comm)
+#if MPI_VERSION == 1
+int MPI_Ssend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#else
+int MPI_Ssend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#endif
 {
   int res;
   PBSET;
@@ -428,8 +440,11 @@ int MPI_Ssend(void* buf, int num, MPI_Datatype dtype, int node,
   return res;
 }
 
-int MPI_Rsend(void* buf, int num, MPI_Datatype dtype, int node, 
-	     int tag, MPI_Comm comm)
+#if MPI_VERSION == 1
+int MPI_Rsend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#else
+int MPI_Rsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#endif
 {
   int res;
   PBSET;
@@ -438,7 +453,11 @@ int MPI_Rsend(void* buf, int num, MPI_Datatype dtype, int node,
   return res;
 }
 
+#if MPI_VERSION == 1
 int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   PBSET;
@@ -451,7 +470,11 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   return err;
 }
 
+#if MPI_VERSION == 1
 int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   PBSET;
@@ -460,15 +483,24 @@ int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
   return err;
 }
 
+#if MPI_VERSION == 1
 int MPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   PBSET;
   err=PMPI_Issend(buf,count,datatype,dest,tag,comm,request);
+  local_clock++;
   return err;
 }
 
+#if MPI_VERSION == 1
 int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   PBSET;
