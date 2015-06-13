@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <time.h>
 
 #include <mpi.h>
 #include <pnmpimod.h>
 
 #include <requests.h>
-
 #include "pb_mod.h"
+
+
 
 /*==========================================================================*/
 /* PB selection */
@@ -84,6 +87,9 @@ static int piggyback_offset;
 static int *StatusOffsetInRequest;
 static int piggyback_size;
 static char *pb_outbuffer;
+
+/*Mutex for multh-threaded support*/
+pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /*==========================================================================*/
@@ -544,7 +550,8 @@ static char *pb_outbuffer;
 
 int PNMPIMOD_Piggyback(int size,char *ptr)
 {
-  PBCOPY(pb_outbuffer,ptr,size);
+  PBCOPY(pb_outbuffer
+,ptr,size);
   return MPI_SUCCESS;
 }
 
@@ -829,6 +836,9 @@ int MPI_Finalize(void)
 int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
 {
   int err;
+
+  pthread_mutex_lock(&fastmutex);
+
   DT_DECLARE_NOPTR(tmp_datatype)
   PACK_DECLARE(ptr,size,pos)
   PACK_ERR_DECLARE_A();
@@ -866,6 +876,8 @@ int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI
   err=PMPI_Send(ptr,size,MPI_PACKED,dest,tag,comm);
   free(ptr);
 #endif
+
+  pthread_mutex_unlock(&fastmutex);
 
   return err;
 }
@@ -910,6 +922,8 @@ int MPI_Bsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   err=PMPI_Bsend(ptr,size,MPI_PACKED,dest,tag,comm);
   free(ptr);
 #endif
+
+
 
   return err;
 }
@@ -1249,6 +1263,10 @@ int MPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
 {
   int err;
+  
+  pthread_mutex_lock(&fastmutex);
+
+
   DT_DECLARE_NOPTR(tmp_datatype)
   PACK_DECLARE(ptr,size,pos)
   PACK_ERR_DECLARE_A()
@@ -1302,6 +1320,8 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, M
   PACK_UNPACK_PB(&(STATUS_STORAGE(status,piggyback_offset,char)),ptr,size,pos,comm);
   free(ptr);
 #endif
+
+  pthread_mutex_unlock(&fastmutex);
 
   return err;
 }
