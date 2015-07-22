@@ -163,10 +163,12 @@ int PNMPIMOD_fetch_next_clocks(int len, int *ranks, size_t *next_clocks)
   size_t min_next_clock = 0;
 
   for (i = 0; i < len; ++i) {
-    PMPI_Get(&next_clocks[i], sizeof(size_t), MPI_BYTE, ranks[i], 1, sizeof(size_t), MPI_BYTE, mpi_clock_win);
+    //    PMPI_Get(&next_clocks[i], sizeof(size_t), MPI_BYTE, ranks[i], 1, sizeof(size_t), MPI_BYTE, mpi_clock_win);
   }
   /*Only after MPI_Win_flush_local_all, the retrived values by PMPI_Get become visible*/
-  PMPI_Win_flush_local_all(mpi_clock_win);
+  //  PMPI_Win_flush_local_all(mpi_clock_win);
+  exit(1);
+  fprintf(stderr, "is not supported");
 
 
   return MPI_SUCCESS;
@@ -494,6 +496,7 @@ int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MP
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
+  //  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %d\n", my_rank, node, tag, pb_clocks->local_clock);
   pb_clocks->local_clock++;
   return res;
 }
