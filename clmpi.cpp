@@ -5,6 +5,7 @@
 #include <execinfo.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string.h>
 
 #include "mpi.h"
 #include "pnmpimod.h"
@@ -90,7 +91,7 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_UNMATCHED_RECV_REQ_CLOCK;
     } else {
       /*If this reuquest[i] is from isend*/
-      // fprintf(stderr, "rank: %d: nooo request: %p siez:%d \n", my_rank, request[i], irecv_request_map.size());
+      //      fprintf(stderr, "rank: %d: nooo request: %p siez:%d \n", my_rank, request[i], irecv_request_map.size());
       // exit(1);
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
     }    
@@ -101,7 +102,7 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
 
 void clmpi_irecv_test_erase(MPI_Request request) {
   if (irecv_request_map.find(request) == irecv_request_map.end()) {
-    fprintf(stderr, "CLMPI: request: %p does not exist", request);
+    fprintf(stderr, "CLMPI:rank %d: request: %p does not exist\n", my_rank, request);
     exit(1);
   }
   irecv_request_map.erase(request);
@@ -707,7 +708,9 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)   {
 	//	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
+	fprintf(stderr, "rank %d: call erase at waitall: Request: %p\n", my_rank, array_of_requests[0]);
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
+	fprintf(stderr, "rank %d: call erase end at waitall\n", my_rank);
       }
     }
   }
@@ -718,11 +721,13 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
   int err;
+  //  MPI_Request *req = request;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Test(request, flag, status);
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
+    //if (irecv_request_map.find(*req) != irecv_request_map.end()) {
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
