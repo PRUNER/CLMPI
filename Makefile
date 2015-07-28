@@ -8,6 +8,8 @@ include ./Makefile.config
 
 MOD    =  libpbdriver.so \
 	  libclmpi.so \
+	  libclmpi_status.so \
+	  libclmpi_request.so \
 	  libpb_datatype1.so \
 	  libpb_datatype2.so 
 
@@ -31,6 +33,15 @@ pb_dt.o:
 
 .cpp.o:
 	$(MPIXX) -c $(CFLAGS) $<
+
+
+libclmpi_request.o: clmpi_request.cpp
+	$(MPICC) -c $(CFLAGS) $<
+	mv clmpi_request.o libclmpi_request.o
+
+libclmpi_status.o: clmpi_status.c
+	$(MPICC) -c $(CFLAGS) $<
+	mv clmpi_status.o libclmpi_status.o
 
 libclmpi.o: clmpi.cpp
 	$(MPICC) -c $(CFLAGS) -DPBDRIVER_CHECK $<
