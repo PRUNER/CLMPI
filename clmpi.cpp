@@ -428,9 +428,7 @@ int cmpi_init_pnmpi() {
     return err;
   StatusOffsetInRequest=(global.addr.i);
 
-
   /* query own module */
-
   err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_CLMPI, &handle_pbd);
   if (err!=PNMPI_SUCCESS)
     return err;
@@ -560,6 +558,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
   //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
+  //  fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, pb_clocks->local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
 
   pb_clocks->local_clock++;
@@ -736,11 +735,11 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
     //if (irecv_request_map.find(*req) != irecv_request_map.end()) {
-      fprintf(stderr, "----- recv -----\n");
+      //      fprintf(stderr, "----- recv -----\n");
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
-      fprintf(stderr, "----- send -----\n");
+      //      fprintf(stderr, "----- send -----\n");
       if (err == MPI_SUCCESS) {
 	if (registered_buff_clocks != NULL) {
 	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;

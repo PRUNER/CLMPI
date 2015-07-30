@@ -42,8 +42,15 @@ Boston, MA 02111-1307 USA
 #include <iostream>
 #include <map>
 
-using namespace std;
+#ifndef _EXTERN_C_
+#ifdef __cplusplus
+#define _EXTERN_C_ extern "C"
+#else /* __cplusplus */
+#define _EXTERN_C_
+#endif /* __cplusplus */
+#endif /* _EXTERN_C_ */
 
+using namespace std;
 
 /*------------------------------------------------------------*/
 /* globals */
@@ -98,8 +105,10 @@ static int req_rank;
 #define ASSOCIATE_REQUEST(request,_type,_buf,_count,_datatype,_node,_tag,_comm,_persistent)\
   if (request!=MPI_REQUEST_NULL) { \
     Req_Int_t *rp;\
-    if (reqtable.freelist==-1) { int err=allocate_new_reqtable();    \
-                                 if (err!=MPI_SUCCESS) return err; } \
+    if (reqtable.freelist==-1) {            \
+      int err=allocate_new_reqtable();	    \
+      if (err!=MPI_SUCCESS) return err;     \
+    }				            \
     requestmap[request]=reqtable.freelist;  \
     rp=&(reqtable.reqs[reqtable.freelist]); \
     rp->param.type=_type;                   \
@@ -483,15 +492,29 @@ int MPI_Finalize()
 /*.......................................................*/
 /* Isend */
 
-int MPI_Isend(void *buf, int count, MPI_Datatype datatype, 
-	      int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
+
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SEND,buf,count,datatype,dest,tag,comm,0);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SEND,(void*)buf,count,datatype,dest,tag,comm,0);
+
+  // {
+  //   Req_Int_t *rp;
+  //   rp=&(reqtable.reqs[requestmap[*request]]);
+  //   fprintf(stderr, "clmpi_request: type: %lu\n", rp->param.type);
+  //   exit(1);
+  // }
+
 
   return err;
 }
@@ -500,47 +523,60 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype,
 /*.......................................................*/
 /* Ibsend */
 
-int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, 
-			int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_BSEND,buf,count,datatype,dest,tag,comm,0);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_BSEND,(void*)buf,count,datatype,dest,tag,comm,0);
   return err;
 }
 
 
 /*.......................................................*/
 /* Issend */
-
-int MPI_Issend(void *buf, int count, MPI_Datatype datatype, 
-			int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else 
+_EXTERN_C_ int PMPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Issend(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SSEND,buf,count,datatype,dest,tag,comm,0);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SSEND,(void*)buf,count,datatype,dest,tag,comm,0);
   return err;
 }
 
 
 /*.......................................................*/
 /* Irsend */
-
-int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, 
-			int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RSEND,buf,count,datatype,dest,tag,comm,0);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RSEND,(void*)buf,count,datatype,dest,tag,comm,0);
   return err;
 }
 
@@ -556,7 +592,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
   int err;
 
   err=PMPI_Irecv(buf,count,datatype,source,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RECV,buf,count,datatype,source,tag,comm,0);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RECV,(void*)buf,count,datatype,source,tag,comm,0);
   return err;
 }
 
@@ -820,66 +856,106 @@ int MPI_Cancel(MPI_Request *request)
 
 /*.......................................................*/
 /* Send init */
-
-int MPI_Send_init(void *buf, int count, MPI_Datatype datatype, 
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Send_init(const void *buf, int count, MPI_Datatype datatype, 
+			int dest, int tag, MPI_Comm comm, 
+			      MPI_Request *request);
+_EXTERN_C_ int MPI_Send_init(const void *buf, int count, MPI_Datatype datatype, 
 			int dest, int tag, MPI_Comm comm, 
 			MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Send_init(void *buf, int count, MPI_Datatype datatype, 
+			int dest, int tag, MPI_Comm comm, 
+			      MPI_Request *request);
+_EXTERN_C_ int MPI_Send_init(void *buf, int count, MPI_Datatype datatype, 
+			int dest, int tag, MPI_Comm comm, 
+			MPI_Request *request)
+#endif
+
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Send_init(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SEND,buf,count,datatype,dest,tag,comm,1);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SEND,(void*)buf,count,datatype,dest,tag,comm,1);
   return err;  
 }
 
 
 /*.......................................................*/
 /* Bsend init */
-
-int MPI_Bsend_init(void *buf, int count, MPI_Datatype datatype, 
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Bsend_init(const void *buf, int count, MPI_Datatype datatype, 
+			 int dest, int tag, MPI_Comm comm, 
+			       MPI_Request *request);
+_EXTERN_C_ int MPI_Bsend_init(const void *buf, int count, MPI_Datatype datatype, 
 			 int dest, int tag, MPI_Comm comm, 
 			 MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Bsend_init(void *buf, int count, MPI_Datatype datatype, 
+			 int dest, int tag, MPI_Comm comm, 
+			      MPI_Request *request);
+_EXTERN_C_ int MPI_Bsend_init(void *buf, int count, MPI_Datatype datatype, 
+			 int dest, int tag, MPI_Comm comm, 
+			 MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Bsend_init(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_BSEND,buf,count,datatype,dest,tag,comm,1);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_BSEND,(void*)buf,count,datatype,dest,tag,comm,1);
   return err;  
 }
 
 
 /*.......................................................*/
 /* Rsend init */
-
-int MPI_Rsend_init(void *buf, int count, MPI_Datatype datatype, 
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Rsend_init(const void *buf, int count, MPI_Datatype datatype, 
+			      int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Rsend_init(const void *buf, int count, MPI_Datatype datatype, 
 			 int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Rsend_init(void *buf, int count, MPI_Datatype datatype, 
+			      int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Rsend_init(void *buf, int count, MPI_Datatype datatype, 
+			 int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
+
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Rsend_init(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RSEND,buf,count,datatype,dest,tag,comm,1);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RSEND,(void*)buf,count,datatype,dest,tag,comm,1);
   return err;  
 }
 
 
 /*.......................................................*/
 /* Rsend init */
-
-int MPI_Ssend_init(void *buf, int count, MPI_Datatype datatype, 
+#if MPI_VERSION == 3
+_EXTERN_C_ int PMPI_Ssend_init(const void *buf, int count, MPI_Datatype datatype, 
+			       int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Ssend_init(const void *buf, int count, MPI_Datatype datatype, 
 			 int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
+_EXTERN_C_ int PMPI_Ssend_init(void *buf, int count, MPI_Datatype datatype, 
+			       int dest, int tag, MPI_Comm comm, MPI_Request *request);
+_EXTERN_C_ int MPI_Ssend_init(void *buf, int count, MPI_Datatype datatype, 
+			      int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   /* creates a request */
 
   int err;
 
   err=PMPI_Ssend_init(buf,count,datatype,dest,tag,comm,request);
-  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SSEND,buf,count,datatype,dest,tag,comm,1);
+  ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_SSEND,(void*)buf,count,datatype,dest,tag,comm,1);
   return err;  
 }
 

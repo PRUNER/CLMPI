@@ -53,6 +53,12 @@ int add_status_storage = 0;
 /*........................................................................*/
 /* macros */
 
+
+/*  ---------------------------------------------------       ------------------------- */
+/* *newstatus=|MPI_Status|status_storage|MPI_Status|status_storage| ... |MPI_Status|status_storage|*/
+/*  ---------------------------------------------------       ------------------------- */
+/* c x |MPI_Status|status_storage| */
+
 #define ALLOCATE_STATUS(newstatus,c) \
    MPI_Status *newstatus=(MPI_Status*) alloca(c*(add_status_storage+sizeof(MPI_Status)));\
    { int _i; for (_i=0; _i<c; _i++) {  newstatus[_i].MPI_ERROR=PNMPIMOD_STATUS_TAG; } }
@@ -227,6 +233,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
   int err;
 
   err=PMPI_Irecv(buf,count,datatype,source,tag,comm,request);
+
   return err;
 }
 

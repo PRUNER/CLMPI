@@ -106,10 +106,11 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
 #define COMM_REQ_FROM_STATUS(status) REQ_FROM_STATUS(status,(*StatusOffsetInRequest))
 #define COMM_REQ_FROM_STATUSARRAY(status,count,num) REQ_FROM_STATUSARRAY(status,(*StatusOffsetInRequest),*TotalStatusExtension,count,num)
 
+
 #define FIX_REQUEST(_req,_buf,_count,_datatype) \
   { PNMPIMOD_Requests_Parameters_t* _store; \
     REQ_ENVELOPE(_req,PNMPIMOD_requestmap,_store); \
-    _store->buf=_buf; \
+    _store->buf=(void*)_buf;				   \
     _store->count=_count; \
     _store->datatype=_datatype; \
   }
@@ -833,7 +834,11 @@ int MPI_Finalize(void)
 /*--------------------------------------------------------------------------*/
 /* Point to Point */
 
+#if MPI_VERSION == 3
+int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#else
 int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#endif
 {
   int err;
 
@@ -882,7 +887,11 @@ int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Bsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#else
 int MPI_Bsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#endif
 {
   int err;
   DT_DECLARE_NOPTR(tmp_datatype)
@@ -928,7 +937,11 @@ int MPI_Bsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Rsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#else
 int MPI_Rsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#endif
 {
   int err;
   DT_DECLARE_NOPTR(tmp_datatype)
@@ -972,7 +985,11 @@ int MPI_Rsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Ssend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#else
 int MPI_Ssend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+#endif
 {
   int err;
   DT_DECLARE_NOPTR(tmp_datatype)
@@ -1020,7 +1037,11 @@ int MPI_Ssend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
 /*........................................................................*/
 /* Async Sends */
 
+#if MPI_VERSION == 3
+int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
 int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   DT_DECLARE(tmp_datatype,ptr)
@@ -1033,7 +1054,7 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   DT_REQALLOC(buf,count,datatype,tmp_datatype,ptr);
   PBCOPYDEF(ptr,pb_outbuffer);
   err=PMPI_Isend(MPI_BOTTOM,1,tmp_datatype,dest,tag,comm,request);
-  FIX_REQUEST(*request,buf,count,datatype);
+  FIX_REQUEST(*request, buf,count,datatype);
   PBPTR_STORAGE(*request,ptr);
   DT_FREE(tmp_datatype);
 #endif
@@ -1079,7 +1100,11 @@ int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MP
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
 int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   DT_DECLARE(tmp_datatype,ptr)
@@ -1138,7 +1163,11 @@ int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
 int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   DT_DECLARE(tmp_datatype,ptr)
@@ -1197,7 +1226,11 @@ int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, M
   return err;
 }
 
+#if MPI_VERSION == 3
+int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#else
 int MPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+#endif
 {
   int err;
   DT_DECLARE(tmp_datatype,ptr)
@@ -1394,9 +1427,15 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, 
 /*........................................................................*/
 /* Send/Recv */
 
+#if MPI_VERSION == 3
+int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, 
+		 void *recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
+		 MPI_Comm comm, MPI_Status *status)
+#else
 int MPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, 
 		 void *recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
 		 MPI_Comm comm, MPI_Status *status)
+#endif
 {
   int err;
   DT_DECLARE_NOPTR(tmp1_datatype)

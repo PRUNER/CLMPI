@@ -55,7 +55,15 @@ Boston, MA 02111-1307 USA
 
 #define STATUS_STORAGE(status,offset,type) STATUS_STORAGE_ARRAY(status,offset,0,type,1,0)
 
-#define STATUS_STORAGE_ARRAY(status,offset,total,type,count,num) (*((type*) (((char*) (status))+count*sizeof(MPI_Status)+num*total+offset)))
+#define STATUS_STORAGE_ARRAY(status,offset,total,type,count,num) \  
+(*( \
+   (type*) ( \
+	    ((char*) (status)) \
+         	    + count * sizeof(MPI_Status) \
+	            + num   * total \
+        	    + offset \
+	    ) \
+)) \
 
 #define PNMPIMOD_STATUS_TAG 0x3e1f9
 

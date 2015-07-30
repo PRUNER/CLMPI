@@ -6,12 +6,14 @@ include ./Makefile.config
 # 	 libpb_pack1.so libpb_pack2.so\
 #          libpb_copy1.so libpb_copy2.so
 
-MOD    =  libpbdriver.so \
-	  libclmpi.so \
+MOD    =  libclmpi.so \
 	  libclmpi_status.so \
 	  libclmpi_request.so \
-	  libpb_datatype1.so \
 	  libpb_datatype2.so 
+
+#libpbdriver.so
+#libpb_datatype1.so
+
 
 HEADER = pb_mod.h clmpi.h
 
