@@ -503,7 +503,7 @@ int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MP
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
-  //  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %d\n", my_rank, node, tag, pb_clocks->local_clock);
+  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %d\n", my_rank, node, tag, pb_clocks->local_clock);
   pb_clocks->local_clock++;
   return res;
 }
@@ -530,6 +530,7 @@ int MPI_Ssend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   int res;
   PBSET;
   res=PMPI_Ssend(buf,num,dtype,node,tag,comm);
+
   pb_clocks->local_clock++;
   return res;
 }
@@ -558,8 +559,8 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
   //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
-  fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, pb_clocks->local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
+  fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %d, request: %p\n", my_rank, dest, tag, pb_clocks->local_clock, *request);
 
   pb_clocks->local_clock++;
   return err;
