@@ -25,6 +25,9 @@ typedef struct pb_clocks{
   size_t local_clock;
 } pb_clocks_t;
 
+size_t local_sent_clock;
+unordered_map<MPI_Request, size_t> request_to_local_clock;
+
 pb_clocks_t *pb_clocks;
 //MPI_Comm mpi_clock_win_comm;
 //MPI_Win  mpi_clock_win;
@@ -735,13 +738,13 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-    //if (irecv_request_map.find(*req) != irecv_request_map.end()) {
-      //      fprintf(stderr, "----- recv -----\n");
       if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
-      //      fprintf(stderr, "----- send -----\n");
       if (err == MPI_SUCCESS) {
+	//	size_t sender_clock;		
+	//	sender_clock = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, 0, 1);
+	//	fprintf(stderr, "sent clock %lu\n", sender_clock);
 	if (registered_buff_clocks != NULL) {
 	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
 	  //	  fprintf(stderr, "[1 |%d|]\n", 1, status->MPI_SOURCE);
