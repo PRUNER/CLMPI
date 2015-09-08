@@ -25,8 +25,11 @@ typedef struct pb_clocks{
   size_t local_clock;
 } pb_clocks_t;
 
-size_t local_sent_clock;
+#define DBG_SC
+#ifdef DBG_SC
+size_t local_sent_clock = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
 unordered_map<MPI_Request, size_t> request_to_local_clock;
+#endif
 
 pb_clocks_t *pb_clocks;
 //MPI_Comm mpi_clock_win_comm;
@@ -157,6 +160,14 @@ int PNMPIMOD_get_local_clock(size_t *clock)
   *clock = pb_clocks->local_clock;
   return MPI_SUCCESS;
 }
+
+#ifdef  DBG_SC
+int PNMPIMOD_get_local_sent_clock(size_t *clock)
+{ 
+  *clock = local_sent_clock;
+  return MPI_SUCCESS;
+}
+#endif
 
 
 // int PNMPIMOD_fetch_next_clocks(int len, int *ranks, size_t *next_clocks)
@@ -346,6 +357,16 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 
+#ifdef  DBG_SC
+  /*Get local clock*/
+  sprintf(service.name,"clmpi_get_local_sent_clock");
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_sent_clock;
+  sprintf(service.sig,"p");
+  err=PNMPI_Service_RegisterService(&service);
+  if (err!=PNMPI_SUCCESS) {
+    return MPI_ERROR_PNMPI;
+  }
+#endif
   // /*Retrieve remote next_clocks*/
   // sprintf(service.name,"clmpi_fetch_next_clocks");
   // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_fetch_next_clocks;
@@ -559,12 +580,17 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 {
   int err;
   PBSET;
+  int datatype_size;
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
   //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
-  fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %d, request: %p\n", my_rank, dest, tag, pb_clocks->local_clock, *request);
-
+  PMPI_Type_size(datatype, &datatype_size);
+  fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %d, request: %p sent_clock: %lu dsize: %d\n", 
+	  my_rank, dest, tag, pb_clocks->local_clock, *request, local_sent_clock, datatype_size * count);
+#ifdef  DBG_SC
+  request_to_local_clock[*request] = pb_clocks->local_clock;
+#endif
   pb_clocks->local_clock++;
   return err;
 }
@@ -578,6 +604,9 @@ int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
+#ifdef  DBG_SC
+  request_to_local_clock[*request] = pb_clocks->local_clock;
+#endif
   pb_clocks->local_clock++;
   return err;
 }
@@ -591,6 +620,9 @@ int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Issend(buf,count,datatype,dest,tag,comm,request);
+#ifdef  DBG_SC
+  request_to_local_clock[*request] = pb_clocks->local_clock;
+#endif
   pb_clocks->local_clock++;
   return err;
 }
@@ -604,6 +636,9 @@ int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   int err;
   PBSET;
   err=PMPI_Irsend(buf,count,datatype,dest,tag,comm,request);
+#ifdef  DBG_SC
+  request_to_local_clock[*request] = pb_clocks->local_clock;
+#endif
   pb_clocks->local_clock++;
   return err;
 }
@@ -659,6 +694,7 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, 
 
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
+  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Wait(request,status);
@@ -675,6 +711,7 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
 
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
 {
+  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitany(count,array_of_requests,index,status);
@@ -690,6 +727,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
 
 int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *array_of_indices, MPI_Status *array_of_statuses)
 {
+  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err,i;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
@@ -709,7 +747,6 @@ int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_statuses)
 {
   int err,i;
-
   //TODO: for now, I moved this function call into the loop #1
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitall(count,array_of_requests,array_of_statuses);
@@ -722,6 +759,22 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 	fprintf(stderr, "rank %d: call erase at waitall: Request: %p\n", my_rank, array_of_requests[0]);
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
 	fprintf(stderr, "rank %d: call erase end at waitall\n", my_rank);
+      } else {
+
+#ifdef DBG_SC
+	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
+	size_t tmp_clock;
+	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	  tmp_clock = request_to_local_clock[tmp_req];
+	  if (local_sent_clock < tmp_clock) {
+	    local_sent_clock = tmp_clock;
+	  }
+	  request_to_local_clock.erase(tmp_req);
+	} else {
+	  fprintf(stderr, "no such send reqeust \n");
+	  exit(1);
+	}
+#endif
       }
     }
   }
@@ -732,9 +785,13 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
   int err;
+  size_t tmp_clock;
+
+
   //  MPI_Request *req = request;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Test(request, flag, status);
+  
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
@@ -752,7 +809,23 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
 	  exit(1);
 	}
+
+#ifdef DBG_SC
+	MPI_Request tmp_req = COMM_REQ_FROM_STATUS(status).inreq;
+	size_t tmp_clock;
+	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	  tmp_clock = request_to_local_clock[tmp_req];
+	  if (local_sent_clock < tmp_clock) {
+	    local_sent_clock = tmp_clock;
+	  }
+	  request_to_local_clock.erase(tmp_req);
+	} else {
+	  fprintf(stderr, "no such send reqeust \n");
+	  exit(1);
+	}
+#endif
       }
+
     }
   }
 
@@ -776,6 +849,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 
 int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag, MPI_Status *status)
 {
+  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testany(count,array_of_requests,index,flag,status);
@@ -820,6 +894,8 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 {
   int err,i;
 
+
+
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
 
@@ -847,6 +923,20 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 	    exit(1);
 	  }
 	}
+#ifdef DBG_SC
+	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
+	size_t tmp_clock;
+	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	  tmp_clock = request_to_local_clock[tmp_req];
+	  if (local_sent_clock < tmp_clock) {
+	    local_sent_clock = tmp_clock;
+	  }
+	  request_to_local_clock.erase(tmp_req);
+	} else {
+	  fprintf(stderr, "no such send reqeust \n");
+	  exit(1);
+	}
+#endif
       }
     } else {
       fprintf(stderr, "request is NULL in testsome of clmpi.cpp\n");
@@ -879,6 +969,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 
 int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status *array_of_statuses)
 {
+  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err,i;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testall(count, array_of_requests, flag, array_of_statuses);

@@ -14,6 +14,7 @@ typedef int (*PNMPIMOD_register_recv_clocks_t)(size_t*, int);
 typedef int (*PNMPIMOD_clock_control_t)(size_t);
 typedef int (*PNMPIMOD_sync_clock_t)(size_t);
 typedef int (*PNMPIMOD_get_local_clock_t)(size_t*);
+typedef int (*PNMPIMOD_get_local_sent_clock_t)(size_t*);
 //typedef int (*PNMPIMOD_fetch_next_clocks_t)(int, int*, size_t*);
 //typedef int (*PNMPIMOD_get_next_clock_t)(size_t*);
 //typedef int (*PNMPIMOD_set_next_clock_t)(size_t);
