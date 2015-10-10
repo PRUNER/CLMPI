@@ -632,8 +632,9 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
     {
       COPY_REQUEST(err,*request,status);
     }
-
+  //  fprintf(stderr, "RQMPI:  %d: request: %p\n", req_rank, *request);
   err=PMPI_Test(request,flag,status);
+  //  fprintf(stderr, "RQMPI:  %d: request: %p end (flag: %d)\n", req_rank, *request, *flag);
   if (*flag) FREE_REQUEST(err,req,*request);
   return err;
 }

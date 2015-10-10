@@ -106,11 +106,11 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
 
 void clmpi_irecv_test_erase(MPI_Request request) {
   if (irecv_request_map.find(request) == irecv_request_map.end()) {
-    fprintf(stderr, "CLMPI:rank %d: request: %p does not exist\n", my_rank, request);
+    fprintf(stderr, "CLMPI:  %d: request: %p does not exist\n", my_rank, request);
     exit(1);
   }
   irecv_request_map.erase(request);
-  //  fprintf(stderr, "rank: %d: erase request: %p size: %d\n", my_rank, request, irecv_request_map.size());
+  //  fprintf(stderr, "CLMPI:  %d: erase request: %p size: %d\n", my_rank, request, irecv_request_map.size());
 }
 
 void clmpi_update_clock(size_t recv_clock) {
@@ -165,10 +165,10 @@ int PNMPIMOD_get_local_clock(size_t *clock)
 int PNMPIMOD_get_local_sent_clock(size_t *clock)
 { 
   *clock = local_sent_clock;
+  //  *clock = pb_clocks->local_clock;
   return MPI_SUCCESS;
 }
 #endif
-
 
 // int PNMPIMOD_fetch_next_clocks(int len, int *ranks, size_t *next_clocks)
 // { 
@@ -529,6 +529,7 @@ int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MP
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
   fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %d\n", my_rank, node, tag, pb_clocks->local_clock);
   pb_clocks->local_clock++;
+  local_sent_clock =  pb_clocks->local_clock;
   return res;
 }
 
@@ -585,12 +586,15 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
   err=PMPI_Isend(buf,count,datatype,dest,tag,comm,request);
-  PMPI_Type_size(datatype, &datatype_size);
-  fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %d, request: %p sent_clock: %lu dsize: %d\n", 
-	  my_rank, dest, tag, pb_clocks->local_clock, *request, local_sent_clock, datatype_size * count);
+  //  fprintf(stderr, "CLMPI:  %d: registered request(SEND): %p\n", my_rank, *request);
+  // PMPI_Type_size(datatype, &datatype_size);
+  // fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %lu, request: %p sent_clock: %lu dsize: %d\n", 
+  // 	  my_rank, dest, tag, pb_clocks->local_clock, *request, local_sent_clock, datatype_size * count);
 #ifdef  DBG_SC
   request_to_local_clock[*request] = pb_clocks->local_clock;
+  // fprintf(stderr, "CLMPI:  %d: registered request(SEND): %p\n", my_rank, *request);
 #endif
+  //  sleep(1);
   pb_clocks->local_clock++;
   return err;
 }
@@ -654,7 +658,7 @@ int MPI_Irecv(void* buf, int num, MPI_Datatype dtype, int node,
   int err;
   err=PMPI_Irecv(buf,num,dtype,node,tag,comm, request);
   irecv_request_map[*request] = request;  
-  //  fprintf(stderr, "rank: %d: registered request: %p size: %d\n", my_rank, *request, irecv_request_map.size());
+  //  fprintf(stderr, "CLMPI:  %d: registered request(RECV): %p size: %d\n", my_rank, *request, irecv_request_map.size());
 
   return err;
 }
@@ -770,6 +774,7 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 	    local_sent_clock = tmp_clock;
 	  }
 	  request_to_local_clock.erase(tmp_req);
+	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
 	} else {
 	  fprintf(stderr, "no such send reqeust \n");
 	  exit(1);
@@ -788,14 +793,15 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
   size_t tmp_clock;
 
 
-  //  MPI_Request *req = request;
+  MPI_Request req = *request;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Test(request, flag, status);
   
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-      if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+      if (err == MPI_SUCCESS) cmpi_sync_clock(status);
+      //      fprintf(stderr, "CLMPI:  %d: request: %p -> %p\n", my_rank, req, *request);
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
       if (err == MPI_SUCCESS) {
@@ -819,8 +825,9 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 	    local_sent_clock = tmp_clock;
 	  }
 	  request_to_local_clock.erase(tmp_req);
+	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
 	} else {
-	  fprintf(stderr, "no such send reqeust \n");
+	  //	  fprintf(stderr, "CLMPI:  %d: no such send request: %p\n", my_rank, tmp_req);
 	  exit(1);
 	}
 #endif
@@ -932,6 +939,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 	    local_sent_clock = tmp_clock;
 	  }
 	  request_to_local_clock.erase(tmp_req);
+	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
 	} else {
 	  fprintf(stderr, "no such send reqeust \n");
 	  exit(1);
@@ -1036,6 +1044,178 @@ int MPI_Finalize()
 
 }
 
+
+/** ========================================================
+ *   MPI Collectives
+ *  ======================================================== **/
+
+void clmpi_collective_sync_clock(MPI_Comm comm)
+{
+  size_t clock_max;
+  fprintf(stderr, "Rank:  %d: ===== MPI_Collective ========\n", my_rank);
+  PMPI_Allreduce(&pb_clocks->local_clock, &clock_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+  fprintf(stderr, "Rank:  %d: ===== MPI_Collective end ========\n", my_rank);
+  pb_clocks->local_clock = clock_max + 1;
+  // TODO: Investigate why this local_sent_clock incrementation causes SEND&GET out of order problem
+  // if (request_to_local_clock.size() == 0) {
+  //   local_sent_clock = pb_clocks->local_clock;
+  // }
+}
+
+/* ================== C Wrappers for MPI_Allreduce ================== */
+_EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
+_EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_5);
+    _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  }    return _wrap_py_return_val;
+}
+
+
+/* ================== C Wrappers for MPI_Reduce ================== */
+_EXTERN_C_ int PMPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6);
+_EXTERN_C_ int MPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_6);
+    _wrap_py_return_val = PMPI_Reduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  }    return _wrap_py_return_val;
+}
+
+
+/* ================== C Wrappers for MPI_Scan ================== */
+_EXTERN_C_ int PMPI_Scan(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
+_EXTERN_C_ int MPI_Scan(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);  
+    _wrap_py_return_val = PMPI_Scan(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Allgather ================== */
+_EXTERN_C_ int PMPI_Allgather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6);
+_EXTERN_C_ int MPI_Allgather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_6);
+    _wrap_py_return_val = PMPI_Allgather(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Gatherv ================== */
+_EXTERN_C_ int PMPI_Gatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8);
+_EXTERN_C_ int MPI_Gatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);  
+    _wrap_py_return_val = PMPI_Gatherv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Reduce_scatter ================== */
+_EXTERN_C_ int PMPI_Reduce_scatter(const void *arg_0, void *arg_1, const int *arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
+_EXTERN_C_ int MPI_Reduce_scatter(const void *arg_0, void *arg_1, const int *arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);  
+    _wrap_py_return_val = PMPI_Reduce_scatter(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Scatterv ================== */
+_EXTERN_C_ int PMPI_Scatterv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, int arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8);
+_EXTERN_C_ int MPI_Scatterv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, int arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);  
+    _wrap_py_return_val = PMPI_Scatterv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Allgatherv ================== */
+_EXTERN_C_ int PMPI_Allgatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, MPI_Comm arg_7);
+_EXTERN_C_ int MPI_Allgatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, MPI_Comm arg_7) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);
+    _wrap_py_return_val = PMPI_Allgatherv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Scatter ================== */
+_EXTERN_C_ int PMPI_Scatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7);
+_EXTERN_C_ int MPI_Scatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);
+    _wrap_py_return_val = PMPI_Scatter(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+  }    return _wrap_py_return_val;
+}
+
+
+/* ================== C Wrappers for MPI_Bcast ================== */
+_EXTERN_C_ int PMPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4);
+_EXTERN_C_ int MPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_4);
+    _wrap_py_return_val = PMPI_Bcast(arg_0, arg_1, arg_2, arg_3, arg_4);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Alltoall ================== */
+_EXTERN_C_ int PMPI_Alltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6);
+_EXTERN_C_ int MPI_Alltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6) {
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);
+    _wrap_py_return_val = PMPI_Alltoall(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  }    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Gather ================== */
+_EXTERN_C_ int PMPI_Gather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7);
+_EXTERN_C_ int MPI_Gather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_7);
+    _wrap_py_return_val = PMPI_Gather(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+  }    return _wrap_py_return_val;
+}
+
+
+/* ================== C Wrappers for MPI_Barrier ================== */
+_EXTERN_C_ int PMPI_Barrier(MPI_Comm arg_0);
+_EXTERN_C_ int MPI_Barrier(MPI_Comm arg_0) {
+  int _wrap_py_return_val = 0;
+  {
+    clmpi_collective_sync_clock(arg_0);
+    //    _wrap_py_return_val = PMPI_Barrier(arg_0);
+  }    return _wrap_py_return_val;
+}
+
+
+
+/* ================== C Wrappers for MPI_Alltoallv ================== */
+_EXTERN_C_ int PMPI_Alltoallv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, const int *arg_5, const int *arg_6, MPI_Datatype arg_7, MPI_Comm arg_8);
+_EXTERN_C_ int MPI_Alltoallv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, const int *arg_5, const int *arg_6, MPI_Datatype arg_7, MPI_Comm arg_8)
+{
+  int _wrap_py_return_val = 0;
+  {
+    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    exit(1);
+    _wrap_py_return_val = PMPI_Alltoallv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  }    return _wrap_py_return_val;
+}
 
 
 
