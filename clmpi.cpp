@@ -126,6 +126,7 @@ void clmpi_update_clock(size_t recv_clock) {
     //   exit(1);
     // }
     // pb_clocks->next_clock = pb_clocks->local_clock;
+    //    if(!my_rank) fprintf(stderr, "%d %f %d %lu\n", my_rank, MPI_Wtime() - start, coll_count++, pb_clocks->local_clock);
   }
 }
 
@@ -161,6 +162,31 @@ int PNMPIMOD_get_local_clock(size_t *clock)
   return MPI_SUCCESS;
 }
 
+size_t start;
+int coll_count = 1;
+int PNMPIMOD_collective_sync_clock(MPI_Comm comm)
+{
+  size_t clock_max;
+  int ret;
+  if (!my_rank) {
+    //    fprintf(stderr, "Rank:  %d: ===== MPI_Collective ========: %f\n", my_rank, MPI_Wtime() - start);
+    //    if(!my_rank) fprintf(stderr, "%d %f %d %lu\n", my_rank, MPI_Wtime() - start, coll_count++, pb_clocks->local_clock);
+    //
+  }
+  ret = PMPI_Allreduce(&pb_clocks->local_clock, &clock_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+  // if (!my_rank) {
+  //   fprintf(stderr, "Rank:  %d: ===== MPI_Collective ========: %f\n", my_rank, MPI_Wtime() - start);
+  // }
+
+  pb_clocks->local_clock = clock_max + 1;
+  // TODO: Investigate why this local_sent_clock incrementation causes SEND&GET out of order problem
+  // if (request_to_local_clock.size() == 0) {
+  //   local_sent_clock = pb_clocks->local_clock;
+  // }
+  return ret;
+}
+
+
 #ifdef  DBG_SC
 int PNMPIMOD_get_local_sent_clock(size_t *clock)
 { 
@@ -169,6 +195,13 @@ int PNMPIMOD_get_local_sent_clock(size_t *clock)
   return MPI_SUCCESS;
 }
 #endif
+
+int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t *size)
+{
+  *size =  request_to_local_clock.size();
+  //  *size = 0;
+  return MPI_SUCCESS;
+}
 
 // int PNMPIMOD_fetch_next_clocks(int len, int *ranks, size_t *next_clocks)
 // { 
@@ -304,6 +337,25 @@ void cmpi_init_pb_clock()
   return;
 }
 
+void cmpi_update_local_sent_clock(MPI_Request tmp_req)
+{
+  size_t tmp_clock;
+  if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+    // tmp_clock = request_to_local_clock[tmp_req];
+    // if (local_sent_clock < tmp_clock) {
+    //   local_sent_clock = tmp_clock;
+    // }
+    request_to_local_clock.erase(tmp_req);
+    //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
+  } else {
+    fprintf(stderr, "no such send reqeust \n");
+    exit(1);
+  }
+  if (request_to_local_clock.empty()) {
+    local_sent_clock = pb_clocks->local_clock - 1;
+  }
+}
+
 
 
 /*.......................................................*/
@@ -367,6 +419,25 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
   }
 #endif
+
+  /*Get collective sync clock*/
+  sprintf(service.name,"clmpi_collective_sync_clock");
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_collective_sync_clock;
+  sprintf(service.sig,"p");
+  err=PNMPI_Service_RegisterService(&service);
+  if (err!=PNMPI_SUCCESS) {
+    return MPI_ERROR_PNMPI;
+  }
+
+  /*Get get_num_of_incomplete_sending_msg*/
+  sprintf(service.name,"clmpi_get_incomplete_smsg_num");
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_num_of_incomplete_sending_msg;
+  sprintf(service.sig,"p");
+  err=PNMPI_Service_RegisterService(&service);
+  if (err!=PNMPI_SUCCESS) {
+    return MPI_ERROR_PNMPI;
+  }
+
   // /*Retrieve remote next_clocks*/
   // sprintf(service.name,"clmpi_fetch_next_clocks");
   // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_fetch_next_clocks;
@@ -510,6 +581,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   cmpi_set_tick();
   //  cmpi_create_window();
+  start = MPI_Wtime();
   return err;
 }
 
@@ -596,6 +668,8 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 #endif
   //  sleep(1);
   pb_clocks->local_clock++;
+
+  
   return err;
 }
 
@@ -760,25 +834,26 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)   {
 	//	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
 	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
-	fprintf(stderr, "rank %d: call erase at waitall: Request: %p\n", my_rank, array_of_requests[0]);
+	//	fprintf(stderr, "rank %d: call erase at waitall: Request: %p\n", my_rank, array_of_requests[0]);
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
-	fprintf(stderr, "rank %d: call erase end at waitall\n", my_rank);
+	//	fprintf(stderr, "rank %d: call erase end at waitall\n", my_rank);
       } else {
 
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
 	size_t tmp_clock;
-	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
-	  tmp_clock = request_to_local_clock[tmp_req];
-	  if (local_sent_clock < tmp_clock) {
-	    local_sent_clock = tmp_clock;
-	  }
-	  request_to_local_clock.erase(tmp_req);
-	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
-	} else {
-	  fprintf(stderr, "no such send reqeust \n");
-	  exit(1);
-	}
+	cmpi_update_local_sent_clock(tmp_req);
+	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	//   tmp_clock = request_to_local_clock[tmp_req];
+	//   if (local_sent_clock < tmp_clock) {
+	//     local_sent_clock = tmp_clock;
+	//   }
+	//   request_to_local_clock.erase(tmp_req);
+	//   //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
+	// } else {
+	//   fprintf(stderr, "no such send reqeust \n");
+	//   exit(1);
+	// }
 #endif
       }
     }
@@ -819,17 +894,18 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUS(status).inreq;
 	size_t tmp_clock;
-	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
-	  tmp_clock = request_to_local_clock[tmp_req];
-	  if (local_sent_clock < tmp_clock) {
-	    local_sent_clock = tmp_clock;
-	  }
-	  request_to_local_clock.erase(tmp_req);
-	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
-	} else {
-	  //	  fprintf(stderr, "CLMPI:  %d: no such send request: %p\n", my_rank, tmp_req);
-	  exit(1);
-	}
+	cmpi_update_local_sent_clock(tmp_req);
+	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	//   tmp_clock = request_to_local_clock[tmp_req];
+	//   if (local_sent_clock < tmp_clock) {
+	//     local_sent_clock = tmp_clock;
+	//   }
+	//   request_to_local_clock.erase(tmp_req);
+	//   //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
+	// } else {
+	//   //	  fprintf(stderr, "CLMPI:  %d: no such send request: %p\n", my_rank, tmp_req);
+	//   exit(1);
+	// }
 #endif
       }
 
@@ -933,17 +1009,18 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
 	size_t tmp_clock;
-	if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
-	  tmp_clock = request_to_local_clock[tmp_req];
-	  if (local_sent_clock < tmp_clock) {
-	    local_sent_clock = tmp_clock;
-	  }
-	  request_to_local_clock.erase(tmp_req);
-	  //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
-	} else {
-	  fprintf(stderr, "no such send reqeust \n");
-	  exit(1);
-	}
+	cmpi_update_local_sent_clock(tmp_req);
+	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
+	//   tmp_clock = request_to_local_clock[tmp_req];
+	//   if (local_sent_clock < tmp_clock) {
+	//     local_sent_clock = tmp_clock;
+	//   }
+	//   request_to_local_clock.erase(tmp_req);
+	//   //	  fprintf(stderr, "CLMPI:  %d: erase registered request(SEND): %p\n", my_rank, tmp_req);
+	// } else {
+	//   fprintf(stderr, "no such send reqeust \n");
+	//   exit(1);
+	// }
 #endif
       }
     } else {
@@ -1049,25 +1126,12 @@ int MPI_Finalize()
  *   MPI Collectives
  *  ======================================================== **/
 
-void clmpi_collective_sync_clock(MPI_Comm comm)
-{
-  size_t clock_max;
-  fprintf(stderr, "Rank:  %d: ===== MPI_Collective ========\n", my_rank);
-  PMPI_Allreduce(&pb_clocks->local_clock, &clock_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
-  fprintf(stderr, "Rank:  %d: ===== MPI_Collective end ========\n", my_rank);
-  pb_clocks->local_clock = clock_max + 1;
-  // TODO: Investigate why this local_sent_clock incrementation causes SEND&GET out of order problem
-  // if (request_to_local_clock.size() == 0) {
-  //   local_sent_clock = pb_clocks->local_clock;
-  // }
-}
 
 /* ================== C Wrappers for MPI_Allreduce ================== */
 _EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
 _EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_5);
     _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
 }
@@ -1078,7 +1142,6 @@ _EXTERN_C_ int PMPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Dataty
 _EXTERN_C_ int MPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_6);
     _wrap_py_return_val = PMPI_Reduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
   }    return _wrap_py_return_val;
 }
@@ -1100,7 +1163,6 @@ _EXTERN_C_ int PMPI_Allgather(const void *arg_0, int arg_1, MPI_Datatype arg_2, 
 _EXTERN_C_ int MPI_Allgather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_6);
     _wrap_py_return_val = PMPI_Allgather(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
   }    return _wrap_py_return_val;
 }
@@ -1166,7 +1228,6 @@ _EXTERN_C_ int PMPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3,
 _EXTERN_C_ int MPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_4);
     _wrap_py_return_val = PMPI_Bcast(arg_0, arg_1, arg_2, arg_3, arg_4);
   }    return _wrap_py_return_val;
 }
@@ -1187,7 +1248,6 @@ _EXTERN_C_ int PMPI_Gather(const void *arg_0, int arg_1, MPI_Datatype arg_2, voi
 _EXTERN_C_ int MPI_Gather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_7);
     _wrap_py_return_val = PMPI_Gather(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
   }    return _wrap_py_return_val;
 }
@@ -1198,8 +1258,7 @@ _EXTERN_C_ int PMPI_Barrier(MPI_Comm arg_0);
 _EXTERN_C_ int MPI_Barrier(MPI_Comm arg_0) {
   int _wrap_py_return_val = 0;
   {
-    clmpi_collective_sync_clock(arg_0);
-    //    _wrap_py_return_val = PMPI_Barrier(arg_0);
+    _wrap_py_return_val = PMPI_Barrier(arg_0);
   }    return _wrap_py_return_val;
 }
 
