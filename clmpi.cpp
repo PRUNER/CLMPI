@@ -121,6 +121,7 @@ void clmpi_update_clock(size_t recv_clock) {
     }
     pb_clocks->local_clock++;
 
+    fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
     // if (pb_clocks->local_clock < pb_clocks->next_clock) {
     //   fprintf(stderr, "CLMPI: local_clock < next_clock\n");
     //   exit(1);
@@ -662,6 +663,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   // PMPI_Type_size(datatype, &datatype_size);
   // fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %lu, request: %p sent_clock: %lu dsize: %d\n", 
   // 	  my_rank, dest, tag, pb_clocks->local_clock, *request, local_sent_clock, datatype_size * count);
+
 #ifdef  DBG_SC
   request_to_local_clock[*request] = pb_clocks->local_clock;
   // fprintf(stderr, "CLMPI:  %d: registered request(SEND): %p\n", my_rank, *request);
@@ -669,6 +671,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   //  sleep(1);
   pb_clocks->local_clock++;
 
+  fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
   
   return err;
 }
@@ -1132,6 +1135,7 @@ _EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Dat
 _EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
+    fprintf(stderr, "CLMPI:  %d: Allreduce\n", my_rank);
     _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
 }

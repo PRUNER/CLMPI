@@ -585,14 +585,14 @@ int PNMPI_RegistrationPoint()
     return MPI_ERROR_PNMPI;
 
   sprintf(service.name,"piggyback");
-  service.fct=(PNMPI_Service_Fct_t*) PNMPIMOD_Piggyback;
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback;
   sprintf(service.sig,"ip");
   err=PNMPI_Service_RegisterService(&service);
   if (err!=PNMPI_SUCCESS)
     return MPI_ERROR_PNMPI;
 
   sprintf(service.name,"piggyback-size");
-  service.fct=(PNMPI_Service_Fct_t*) PNMPIMOD_Piggyback_Size;
+  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback_Size;
   sprintf(service.sig,"i");
   err=PNMPI_Service_RegisterService(&service);
   if (err!=PNMPI_SUCCESS)
