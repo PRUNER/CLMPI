@@ -1,5 +1,5 @@
 #include <mpi.h>
-#include <status.h>
+#include "clmpi_status.h"
 
 #ifndef _PNMPI_MOD_REQUESTS
 #define _PNMPI_MOD_REQUESTS
@@ -73,6 +73,7 @@ typedef long MyReq_t;
 #define REQ_FROM_STATUSARRAY(status,offset,totext,count,num) STATUS_STORAGE_ARRAY(status,offset,totext,PNMPIMOD_Requests_Parameters_t,count,num)
 #define INFO_FROM_STATUSARRAY(status,offset,totext,type,count,num) STATUS_STORAGE_ARRAY(status,offset+sizeof(PNMPIMOD_Requests_Parameters_t),totext,type,count,num)
 
+extern int PNMPIMOD_Request_offsetInStatus;
 
 /*..........................................................*/
 /* Request additional memory in the request object
@@ -85,11 +86,18 @@ typedef long MyReq_t;
          <0: error message 
 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef int (*PNMPIMOD_Requests_RequestStorage_t)(int);
 int PNMPIMOD_Requests_RequestStorage(int size);
 
 typedef PNMPIMOD_Requests_Parameters_t* (*PNMPIMOD_Requests_MapRequest_t)(MPI_Request);
 PNMPIMOD_Requests_Parameters_t* PNMPIMOD_Requests_MapRequest(MPI_Request req);
+#ifdef __cplusplus
+}
+#endif
+
 
 
 #endif /* _PNMPI_MOD_REQUESTS */

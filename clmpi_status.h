@@ -67,6 +67,8 @@ Boston, MA 02111-1307 USA
 
 #define PNMPIMOD_STATUS_TAG 0x3e1f9
 
+extern int add_status_storage;
+
 
 /*..........................................................*/
 /* Request additional memory in the status object
@@ -78,9 +80,16 @@ Boston, MA 02111-1307 USA
    OUT: >=0: offset of new storage relative to request pointer
          <0: error message 
 */
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef int (*PNMPIMOD_Status_RequestStorage_t)(int);
 int PNMPIMOD_Status_RequestStorage(int size);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif /* _PNMPI_MOD_STATUS */

@@ -35,9 +35,8 @@ Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
-#include <pnmpimod.h>
-#include <status.h>
-#include "requests.h"
+#include "clmpi_status.h"
+#include "clmpi_request.h"
 
 #include <iostream>
 #include <map>
@@ -86,7 +85,7 @@ static PNMPIMOD_Status_RequestStorage_t status_add;
 
 static ReqTable_t reqtable;
 
-static int PNMPIMOD_Request_offsetInStatus;
+int PNMPIMOD_Request_offsetInStatus;
 static int *TotalStatusExtension;
 
 static map<MPI_Request,int> requestmap;
@@ -155,6 +154,7 @@ static int req_rank;
    only be called from MPI_Init - hence there should not be
    more than one thread calling it anyway */
 
+
 int PNMPIMOD_Requests_RequestStorage(int size)
 {
   int ret;
@@ -171,6 +171,7 @@ PNMPIMOD_Requests_Parameters_t* PNMPIMOD_Requests_MapRequest(MPI_Request req)
 }
 
 
+
 /*------------------------------------------------------------*/
 /* Internal routines */
 
@@ -181,13 +182,13 @@ int allocate_new_reqtable()
 
   reqtable.reqs=(Req_Int_t*) realloc(reqtable.reqs,sizeof(Req_Int_t)*(reqtable.size+TABLE_SEGMENT_SIZE));
   if (reqtable.reqs==NULL)
-    return MPI_ERROR_MEM;
+    return 1;
 
   if (reqtable.storage_stride>0)
     {
       reqtable.data=(char*) realloc(reqtable.data,reqtable.storage_stride*(reqtable.size+TABLE_SEGMENT_SIZE));
       if (reqtable.data==NULL)
-	return MPI_ERROR_MEM;
+	return 1;
       for (i=0; i<reqtable.size+TABLE_SEGMENT_SIZE; i++)
 	reqtable.reqs[i].param.data=&(reqtable.data[i*reqtable.storage_stride]);
     }
@@ -204,7 +205,7 @@ int allocate_new_reqtable()
 
   reqtable.size += TABLE_SEGMENT_SIZE;
 
-  return PNMPI_SUCCESS;
+  return MPI_SUCCESS;
 }
 
 
@@ -214,47 +215,47 @@ int allocate_new_reqtable()
 /*.......................................................*/
 /* Registration */
 
-int PNMPI_RegistrationPoint()
-{
-  int err;
-  PNMPI_Service_descriptor_t service;
-  PNMPI_Global_descriptor_t global;
+// int PNMPI_RegistrationPoint()
+// {
+//   int err;
+//   // PNMPI_Service_descriptor_t service;
+//   // PNMPI_Global_descriptor_t global;
 
 
-  /* reset variables */
+//   /* reset variables */
 
-  extra_request_space = 0;
+//   extra_request_space = 0;
 
 
-  /* register this module and its services */
+//   /* register this module and its services */
 
-  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_REQUEST);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   // err=PNMPI_Service_RegisterModule(PNMPI_MODULE_REQUEST);
+//   // if (err!=MPI_SUCCESS)
+//   //   return MPI_ERROR_PNMPI;
 
-  sprintf(service.name,"add-storage");
-  service.fct = (PNMPI_Service_Fct_t)PNMPIMOD_Requests_RequestStorage;
-  sprintf(service.sig,"i");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   // sprintf(service.name,"add-storage");
+//   // service.fct = (PNMPI_Service_Fct_t)PNMPIMOD_Requests_RequestStorage;
+//   // sprintf(service.sig,"i");
+//   // err=PNMPI_Service_RegisterService(&service);
+//   // if (err!=MPI_SUCCESS)
+//   //   return MPI_ERROR_PNMPI;
 
-  sprintf(service.name,"map-request");
-  service.fct = (PNMPI_Service_Fct_t)PNMPIMOD_Requests_MapRequest;
-  sprintf(service.sig,"r");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   // sprintf(service.name,"map-request");
+//   // service.fct = (PNMPI_Service_Fct_t)PNMPIMOD_Requests_MapRequest;
+//   // sprintf(service.sig,"r");
+//   // err=PNMPI_Service_RegisterService(&service);
+//   // if (err!=MPI_SUCCESS)
+//   //   return MPI_ERROR_PNMPI;
 
-  sprintf(global.name,"status-offset");
-  global.addr.i=&PNMPIMOD_Request_offsetInStatus;
-  global.sig='i';
-  err=PNMPI_Service_RegisterGlobal(&global);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   // sprintf(global.name,"status-offset");
+//   // global.addr.i=&PNMPIMOD_Request_offsetInStatus;
+//   // global.sig='i';
+//   // err=PNMPI_Service_RegisterGlobal(&global);
+//   // if (err!=MPI_SUCCESS)
+//   //   return MPI_ERROR_PNMPI;
 
-  return err;
-}
+//   return err;
+// }
 
 
 /*.......................................................*/
@@ -263,31 +264,30 @@ int PNMPI_RegistrationPoint()
 int MPI_Init(int *argc, char ***argv)
 {
   int err;
-  PNMPI_modHandle_t handle_status;
-  PNMPI_Service_descriptor_t serv;
-  PNMPI_Global_descriptor_t global;
-  PNMPI_modHandle_t handle_req;
+  // PNMPI_modHandle_t handle_status;
+  // PNMPI_Service_descriptor_t serv;
+  // PNMPI_Global_descriptor_t global;
+  // PNMPI_modHandle_t handle_req;
   const char *clevel_s;
  
   /* are we doing checks at the end? */
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-
-  err=PNMPI_Service_GetArgument(handle_req,"check",&clevel_s);
-  if (err!=PNMPI_SUCCESS)
-    {
-      if (err==PNMPI_NOARG)
-	check_level=0;
-      else
-	return err;
-    }
-  else
-    {
-      check_level=atoi(clevel_s);
-    }
-
+  // err=PNMPI_Service_GetArgument(handle_req,"check",&clevel_s);
+  // if (err!=MPI_SUCCESS)
+  //   {
+  //     if (err==PNMPI_NOARG)
+  // 	check_level=0;
+  //     else
+  // 	return err;
+  //   }
+  // else
+  //   {
+  //     check_level=atoi(clevel_s);
+  //   }
+  check_level=0;
 
 
   /* all modules have registered their
@@ -313,7 +313,6 @@ int MPI_Init(int *argc, char ***argv)
   err=PMPI_Init(argc,argv);
   if (err!=MPI_SUCCESS)
     return err;
-
   err=PMPI_Comm_rank(MPI_COMM_WORLD,&req_rank);
   if (err!=MPI_SUCCESS)
     return err;
@@ -321,23 +320,23 @@ int MPI_Init(int *argc, char ***argv)
 
   /* query the status module */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
-  if (err!=MPI_SUCCESS)
-    return err;
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
-  if (err!=MPI_SUCCESS)
-    return err;
-  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
+  // err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
+  //  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
+  status_add = PNMPIMOD_Status_RequestStorage;
 
-  err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
-  if (err!=MPI_SUCCESS)
-    return err;
-  TotalStatusExtension=(global.addr.i);
-
+  // err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
+  //  TotalStatusExtension=(global.addr.i);
+  TotalStatusExtension = &add_status_storage;
 
   /* request to track requests */
-
   PNMPIMOD_Request_offsetInStatus=status_add(reqtable.storage_stride+sizeof(PNMPIMOD_Requests_Parameters_t));
 
   return err;
@@ -347,31 +346,30 @@ int MPI_Init(int *argc, char ***argv)
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
   int err;
-  PNMPI_modHandle_t handle_status;
-  PNMPI_Service_descriptor_t serv;
-  PNMPI_Global_descriptor_t global;
-  PNMPI_modHandle_t handle_req;
+  // PNMPI_modHandle_t handle_status;
+  // PNMPI_Service_descriptor_t serv;
+  // PNMPI_Global_descriptor_t global;
+  // PNMPI_modHandle_t handle_req;
   const char *clevel_s;
  
   /* are we doing checks at the end? */
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-
-  err=PNMPI_Service_GetArgument(handle_req,"check",&clevel_s);
-  if (err!=PNMPI_SUCCESS)
-    {
-      if (err==PNMPI_NOARG)
-	check_level=0;
-      else
-	return err;
-    }
-  else
-    {
-      check_level=atoi(clevel_s);
-    }
-
+  // err=PNMPI_Service_GetArgument(handle_req,"check",&clevel_s);
+  // if (err!=MPI_SUCCESS)
+  //   {
+  //     if (err==PNMPI_NOARG)
+  // 	check_level=0;
+  //     else
+  // 	return err;
+  //   }
+  // else
+  //   {
+  //     check_level=atoi(clevel_s);
+  //   }
+  check_level=0;
 
 
   /* all modules have registered their
@@ -395,10 +393,8 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   /* call the init routines */
 
   err=PMPI_Init_thread(argc,argv, required, provided);
-
   if (err!=MPI_SUCCESS)
     return err;
-
   err=PMPI_Comm_rank(MPI_COMM_WORLD,&req_rank);
   if (err!=MPI_SUCCESS)
     return err;
@@ -406,23 +402,23 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 
   /* query the status module */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
-  if (err!=MPI_SUCCESS)
-    return err;
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
-  if (err!=MPI_SUCCESS)
-    return err;
-  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
+  // err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
+  //  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
+  status_add = PNMPIMOD_Status_RequestStorage;
 
-  err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
-  if (err!=MPI_SUCCESS)
-    return err;
-  TotalStatusExtension=(global.addr.i);
-
+  // err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
+  // if (err!=MPI_SUCCESS)
+  //   return err;
+  //  TotalStatusExtension=(global.addr.i);
+  TotalStatusExtension = &add_status_storage;
 
   /* request to track requests */
-
   PNMPIMOD_Request_offsetInStatus=status_add(reqtable.storage_stride+sizeof(PNMPIMOD_Requests_Parameters_t));
 
   return err;
@@ -592,7 +588,9 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
   int err;
 
   err=PMPI_Irecv(buf,count,datatype,source,tag,comm,request);
+
   ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RECV,(void*)buf,count,datatype,source,tag,comm,0);
+
   return err;
 }
 
@@ -651,7 +649,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests,
 
   check=CHECK_COPY(status);
   ra=(MPI_Request*) malloc(count*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
+  if (ra==NULL) return 1;
   for (i=0; i<count; i++)
     {
       ra[i]=array_of_requests[i];
@@ -681,7 +679,7 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index,
 
   check=CHECK_COPY(status);
   ra=(MPI_Request*) malloc(count*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
+  if (ra==NULL) return 1;
   for (i=0; i<count; i++)
     {
       ra[i]=array_of_requests[i];
@@ -714,7 +712,7 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests,
 
   check=CHECK_COPY(array_of_statuses);
   ra=(MPI_Request*) malloc(count*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
+  if (ra==NULL) return 1;
   for (i=0; i<count; i++)
     {
       ra[i]=array_of_requests[i];
@@ -747,7 +745,7 @@ int MPI_Testall(int count, MPI_Request *array_of_requests,
 
   check=CHECK_COPY(array_of_statuses);
   ra=(MPI_Request*) malloc(count*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
+  if (ra==NULL) return 1;
   for (i=0; i<count; i++)
     {
       ra[i]=array_of_requests[i];
@@ -784,7 +782,7 @@ int MPI_Waitsome(int count, MPI_Request *array_of_requests,
 
   check=CHECK_COPY(array_of_statuses);
   ra=(MPI_Request*) malloc(count*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
+  if (ra==NULL) return 1;
   for (i=0; i<count; i++)
     {
       ra[i]=array_of_requests[i];
@@ -817,14 +815,14 @@ int MPI_Testsome(int incount, MPI_Request *array_of_requests,
   MPI_Request *ra;
 
   check=CHECK_COPY(array_of_statuses);
-  ra=(MPI_Request*) malloc(incount*sizeof(MPI_Request));
-  if (ra==NULL) return MPI_ERROR_MEM;
-  for (i=0; i<incount; i++)
-    {
-      ra[i]=array_of_requests[i];
-    }
 
-  
+  ra=(MPI_Request*) malloc(incount*sizeof(MPI_Request));
+  if (ra==NULL) return 1;
+  for (i=0; i<incount; i++) {
+      ra[i]=array_of_requests[i];
+  }
+
+
   err=PMPI_Testsome(incount,array_of_requests,outcount,array_of_indices,array_of_statuses);
 
 

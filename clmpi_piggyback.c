@@ -5,11 +5,9 @@
 #include <time.h>
 
 #include <mpi.h>
-#include <pnmpimod.h>
 
-#include <requests.h>
-#include "pb_mod.h"
-
+#include "clmpi_request.h"
+#include "clmpi_piggyback.h"
 
 
 /*==========================================================================*/
@@ -83,9 +81,9 @@ PNMPIMOD_Datatype_delReference_t dt_del;
 PNMPIMOD_Datatype_getSize_t      dt_size;
 #endif
 
-static int piggyback_offset;
+int piggyback_offset;
 static int *StatusOffsetInRequest;
-static int piggyback_size;
+static int piggyback_size = 4;
 static char *pb_outbuffer;
 
 /*Mutex for multh-threaded support*/
@@ -168,7 +166,7 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
 #define DT_OUTALLOC(b,c,dt,var) DT_GENERALALLOC(b,c,dt,pb_outbuffer,var)
 #define DT_STATUSALLOC(b,c,dt,st,var) DT_GENERALALLOC(b,c,dt,&(STATUS_STORAGE(status,piggyback_offset,char)),var);
 #define DT_REQALLOC(b,c,dt,var,ptr) { ptr=(char*) malloc(piggyback_size);\
-        if (ptr==NULL) { return MPI_ERROR_MEM; } \
+        if (ptr==NULL) { return 1; } \
         DT_GENERALALLOC(b,c,dt,ptr,var); }
 
 #else /* PB_DATATYPE */
@@ -191,7 +189,7 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
 #define REQ_DECLARE(var) MPI_Request var;
 #define TM_DECLARE(ptr) void *ptr;
 #define PB_ALLOC(ptr) { ptr=(char*) malloc(piggyback_size);\
-        if (ptr==NULL) { return MPI_ERROR_MEM; } } 
+        if (ptr==NULL) { return 1; } } 
 #define PBREQ_STORAGE(req,data) REQ_STORAGE(req,PNMPIMOD_requestmap,request_offset_req,MPI_Request,data);
 #define PBBUF_STORAGE(req,data) REQ_STORAGE(req,PNMPIMOD_requestmap,request_offset_buf,void*,data);
 #define PBDT_STORAGE(req,data) REQ_STORAGE(req,PNMPIMOD_requestmap,request_offset_dt,MPI_Datatype,data);
@@ -301,7 +299,7 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
   if (_e!=MPI_SUCCESS) return _e;\
   size = size*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;\
+  if (ptr==NULL) return 1;\
   _p=0;
 
 #define PACKBUF_ALLOC(ptr,size,count,datatype)\
@@ -309,14 +307,14 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
   if (_e!=MPI_SUCCESS) return _e;\
   size = size*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;
+  if (ptr==NULL) return 1;
 
 #define PACKBUF_ALLOC_STSZ(ptr,size,count,datatype,dtsz)	\
   _e=MPI_Type_size(datatype,&dtsz);\
   if (_e!=MPI_SUCCESS) return _e;\
   size = dtsz*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;
+  if (ptr==NULL) return 1;
 
 #define UNPACK_START(_p)\
   _p=0;
@@ -403,7 +401,7 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
   if (_e!=PNMPI_SUCCESS) return _e;\
   size = size*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;\
+  if (ptr==NULL) return 1;\
   _p=0;
 
 #define PACKBUF_ALLOC(ptr,size,count,datatype)\
@@ -411,14 +409,14 @@ pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
   if (_e!=MPI_SUCCESS) return _e;\
   size = size*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;
+  if (ptr==NULL) return 1;
 
 #define PACKBUF_ALLOC_STSZ(ptr,size,count,datatype,dtsz)	\
   _e=dt_size(datatype,&dtsz);\
   if (_e!=MPI_SUCCESS) return _e;\
   size = dtsz*count + piggyback_size;\
   ptr=malloc(size);\
-  if (ptr==NULL) return MPI_ERROR_MEM;
+  if (ptr==NULL) return 1;
 
 #define UNPACK_START(_p)\
   _p=0;
@@ -572,43 +570,43 @@ int PNMPIMOD_Piggyback_Size(int size)
 /*.......................................................*/
 /* Registration */
 
-int PNMPI_RegistrationPoint()
-{
-  int err;
-  PNMPI_Service_descriptor_t service;
-  PNMPI_Global_descriptor_t global;
+// int PNMPI_RegistrationPoint()
+// {
+//   int err;
+//   /* PNMPI_Service_descriptor_t service; */
+//   /* PNMPI_Global_descriptor_t global; */
 
-  /* register this module and its services */
+//   /* register this module and its services */
 
-  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_PB);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   /* err=PNMPI_Service_RegisterModule(PNMPI_MODULE_PB); */
+//   /* if (err!=PNMPI_SUCCESS) */
+//   /*   return MPI_ERROR_PNMPI; */
 
-  sprintf(service.name,"piggyback");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback;
-  sprintf(service.sig,"ip");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   /* sprintf(service.name,"piggyback"); */
+//   /* service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback; */
+//   /* sprintf(service.sig,"ip"); */
+//   /* err=PNMPI_Service_RegisterService(&service); */
+//   /* if (err!=PNMPI_SUCCESS) */
+//   /*   return MPI_ERROR_PNMPI; */
 
-  sprintf(service.name,"piggyback-size");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback_Size;
-  sprintf(service.sig,"i");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   /* sprintf(service.name,"piggyback-size"); */
+//   /* service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Piggyback_Size; */
+//   /* sprintf(service.sig,"i"); */
+//   /* err=PNMPI_Service_RegisterService(&service); */
+//   /* if (err!=PNMPI_SUCCESS) */
+//   /*   return MPI_ERROR_PNMPI; */
 
-  sprintf(global.name,"piggyback-offset");
-  global.addr.i=&piggyback_offset;
-  global.sig='i';
-  err=PNMPI_Service_RegisterGlobal(&global);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
+//   /* sprintf(global.name,"piggyback-offset"); */
+//   /* global.addr.i=&piggyback_offset; */
+//   /* global.sig='i'; */
+//   /* err=PNMPI_Service_RegisterGlobal(&global); */
+//   /* if (err!=PNMPI_SUCCESS) */
+//   /*   return MPI_ERROR_PNMPI; */
 
-  piggyback_size=4;
+//   piggyback_size=4;
 
-  return err;
-}
+//   return err;
+// }
 
 
 /*.......................................................*/
@@ -618,74 +616,77 @@ int PNMPI_RegistrationPoint()
 int MPI_Init(int *argc, char ***argv)
 {
   int err;
-  PNMPI_modHandle_t handle_req,handle_status;
-#ifdef PB_COPY
-  PNMPI_modHandle_t handle_dt;
-#endif
-  PNMPI_Service_descriptor_t serv;
-  PNMPI_Global_descriptor_t global;
+/*   PNMPI_modHandle_t handle_req,handle_status; */
+/* #ifdef PB_COPY */
+/*   PNMPI_modHandle_t handle_dt; */
+/* #endif */
+/*   PNMPI_Service_descriptor_t serv; */
+/*   PNMPI_Global_descriptor_t global; */
 
 
-#ifdef PB_COPY
-  /* query the datatype module */
+/* #ifdef PB_COPY */
+/*   /\* query the datatype module *\/ */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_DATATYPE,&handle_dt);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+/*   err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_DATATYPE,&handle_dt); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err; */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeReference","pimp",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  dt_get=(PNMPIMOD_Datatype_getReference_t) ((void*)serv.fct);
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeReference","pimp",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err; */
+/*   dt_get=(PNMPIMOD_Datatype_getReference_t) ((void*)serv.fct); */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"delDatatypeReference","p",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;  
-  dt_del=(PNMPIMOD_Datatype_delReference_t) ((void*)serv.fct);
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"delDatatypeReference","p",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err;   */
+/*   dt_del=(PNMPIMOD_Datatype_delReference_t) ((void*)serv.fct); */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeSize","mp",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;  
-  dt_size=(PNMPIMOD_Datatype_getSize_t) ((void*)serv.fct);
-#endif
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeSize","mp",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err;   */
+/*   dt_size=(PNMPIMOD_Datatype_getSize_t) ((void*)serv.fct); */
+/* #endif */
 
   /* query the request module */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  /* err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
 
-  err=PNMPI_Service_GetServiceByName(handle_req,"add-storage","i",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  req_add=(PNMPIMOD_Requests_RequestStorage_t) ((void*)serv.fct);
+  /* err=PNMPI_Service_GetServiceByName(handle_req,"add-storage","i",&serv); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* req_add=(PNMPIMOD_Requests_RequestStorage_t) ((void*)serv.fct); */
+  req_add=PNMPIMOD_Requests_RequestStorage;
 
-  err=PNMPI_Service_GetServiceByName(handle_req,"map-request","r",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  PNMPIMOD_requestmap=(PNMPIMOD_Requests_MapRequest_t) ((void*)serv.fct);
+  /* err=PNMPI_Service_GetServiceByName(handle_req,"map-request","r",&serv); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* PNMPIMOD_requestmap=(PNMPIMOD_Requests_MapRequest_t) ((void*)serv.fct); */
+  PNMPIMOD_requestmap=PNMPIMOD_Requests_MapRequest;
 
-  err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  StatusOffsetInRequest=(global.addr.i);
-
+  /* err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* StatusOffsetInRequest=(global.addr.i); */
+  StatusOffsetInRequest=&PNMPIMOD_Request_offsetInStatus;
 
   /* query the status module */
+  /* err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  /* err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv); */
+  /* if (err!=MPI_SUCCESS) */
+  /*   return err; */
+  /* status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct; */
+  status_add=PNMPIMOD_Requests_RequestStorage;
 
-  err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
-  if (err!=MPI_SUCCESS)
-    return err;
-  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
-
-  err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  TotalStatusExtension=(global.addr.i);
+  /* err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* TotalStatusExtension=(global.addr.i); */
+  TotalStatusExtension=&add_status_storage;
 
 
   /* request to track requests */
@@ -712,7 +713,7 @@ int MPI_Init(int *argc, char ***argv)
   piggyback_offset=status_add(piggyback_size);
   pb_outbuffer=(char*)malloc(piggyback_size);
   if (pb_outbuffer==NULL)
-    return MPI_ERROR_MEM;
+    return 1;
 
   return err;
 }
@@ -720,75 +721,79 @@ int MPI_Init(int *argc, char ***argv)
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
+
   int err;
-  PNMPI_modHandle_t handle_req,handle_status;
-#ifdef PB_COPY
-  PNMPI_modHandle_t handle_dt;
-#endif
-  PNMPI_Service_descriptor_t serv;
-  PNMPI_Global_descriptor_t global;
+/*   PNMPI_modHandle_t handle_req,handle_status; */
+/* #ifdef PB_COPY */
+/*   PNMPI_modHandle_t handle_dt; */
+/* #endif */
+/*   PNMPI_Service_descriptor_t serv; */
+/*   PNMPI_Global_descriptor_t global; */
 
 
-#ifdef PB_COPY
-  /* query the datatype module */
+/* #ifdef PB_COPY */
+/*   /\* query the datatype module *\/ */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_DATATYPE,&handle_dt);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+/*   err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_DATATYPE,&handle_dt); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err; */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeReference","pimp",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  dt_get=(PNMPIMOD_Datatype_getReference_t) ((void*)serv.fct);
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeReference","pimp",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err; */
+/*   dt_get=(PNMPIMOD_Datatype_getReference_t) ((void*)serv.fct); */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"delDatatypeReference","p",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;  
-  dt_del=(PNMPIMOD_Datatype_delReference_t) ((void*)serv.fct);
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"delDatatypeReference","p",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err;   */
+/*   dt_del=(PNMPIMOD_Datatype_delReference_t) ((void*)serv.fct); */
 
-  err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeSize","mp",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;  
-  dt_size=(PNMPIMOD_Datatype_getSize_t) ((void*)serv.fct);
-#endif
+/*   err=PNMPI_Service_GetServiceByName(handle_dt,"getDatatypeSize","mp",&serv); */
+/*   if (err!=PNMPI_SUCCESS) */
+/*     return err;   */
+/*   dt_size=(PNMPIMOD_Datatype_getSize_t) ((void*)serv.fct); */
+/* #endif */
 
   /* query the request module */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  /* err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
 
-  err=PNMPI_Service_GetServiceByName(handle_req,"add-storage","i",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  req_add=(PNMPIMOD_Requests_RequestStorage_t) ((void*)serv.fct);
+  /* err=PNMPI_Service_GetServiceByName(handle_req,"add-storage","i",&serv); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* req_add=(PNMPIMOD_Requests_RequestStorage_t) ((void*)serv.fct); */
+  req_add=PNMPIMOD_Requests_RequestStorage;
 
-  err=PNMPI_Service_GetServiceByName(handle_req,"map-request","r",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  PNMPIMOD_requestmap=(PNMPIMOD_Requests_MapRequest_t) ((void*)serv.fct);
+  /* err=PNMPI_Service_GetServiceByName(handle_req,"map-request","r",&serv); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* PNMPIMOD_requestmap=(PNMPIMOD_Requests_MapRequest_t) ((void*)serv.fct); */
+  PNMPIMOD_requestmap=PNMPIMOD_Requests_MapRequest;
 
-  err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  StatusOffsetInRequest=(global.addr.i);
-
+  /* err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* StatusOffsetInRequest=(global.addr.i); */
+  StatusOffsetInRequest=&PNMPIMOD_Request_offsetInStatus;
 
   /* query the status module */
+  /* err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
 
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  /* err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv); */
+  /* if (err!=MPI_SUCCESS) */
+  /*   return err; */
+  /* status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct; */
+  status_add=PNMPIMOD_Requests_RequestStorage;
 
-  err=PNMPI_Service_GetServiceByName(handle_status,"add-storage","i",&serv);
-  if (err!=MPI_SUCCESS)
-    return err;
-  status_add=(PNMPIMOD_Requests_RequestStorage_t) serv.fct;
-
-  err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  TotalStatusExtension=(global.addr.i);
+  /* err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global); */
+  /* if (err!=PNMPI_SUCCESS) */
+  /*   return err; */
+  /* TotalStatusExtension=(global.addr.i); */
+  TotalStatusExtension=&add_status_storage;
 
 
   /* request to track requests */
@@ -815,7 +820,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   piggyback_offset=status_add(piggyback_size);
   pb_outbuffer=(char*)malloc(piggyback_size);
   if (pb_outbuffer==NULL)
-    return MPI_ERROR_MEM;
+    return 1;
 
   return err;
 }
@@ -1372,13 +1377,19 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, 
   PACK_DECLARE_NOPOS(ptr,size)
   PACK_ERR_DECLARE_A()
 
+
+
+
 #ifdef PB_DATATYPE
+
   DT_REQALLOC(buf,count,datatype,tmp_datatype,ptr);
+
   err=PMPI_Irecv(MPI_BOTTOM,1,tmp_datatype,source,tag,comm,request);
   FIX_REQUEST(*request,buf,count,datatype);
   PBPTR_STORAGE(*request,ptr);
   DT_FREE(tmp_datatype);
 #endif
+
 
 #ifdef PB_TWOMSG1
   PB_ALLOC(ptr);

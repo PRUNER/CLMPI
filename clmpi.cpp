@@ -9,9 +9,9 @@
 
 #include "mpi.h"
 #include "pnmpimod.h"
-#include "status.h"
-#include "requests.h"
-#include "pb_mod.h"
+#include "clmpi_status.h"
+#include "clmpi_request.h"
+#include "clmpi_piggyback.h"
 #include "clmpi.h"
 
 using namespace std;
@@ -154,6 +154,7 @@ int PNMPIMOD_clock_control(size_t control)
 int PNMPIMOD_sync_clock(size_t recv_clock)
 { 
   clmpi_update_clock(recv_clock);
+  return 1;
 }
 
 
@@ -475,59 +476,60 @@ int PNMPI_RegistrationPoint()
 
 int cmpi_init_pnmpi() {
   int err;
-  PNMPI_modHandle_t handle_pb,handle_pbd,handle_status,handle_req;
-  PNMPI_Service_descriptor_t serv;
-  PNMPI_Global_descriptor_t global;
-  const char *vlevel_s;
+  // PNMPI_modHandle_t handle_pb,handle_pbd,handle_status,handle_req;
+  // PNMPI_Service_descriptor_t serv;
+  // PNMPI_Global_descriptor_t global;
+  // const char *vlevel_s;
 
-  /* query pb module */
-
-
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_PB,&handle_pb);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-
-  err=PNMPI_Service_GetServiceByName(handle_pb,"piggyback","ip",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  pb_set=(PNMPIMOD_Piggyback_t) ((void*)serv.fct);
-
-  err=PNMPI_Service_GetServiceByName(handle_pb,"piggyback-size","i",&serv);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  pb_setsize=(PNMPIMOD_Piggyback_Size_t) ((void*)serv.fct);
-
-  err=PNMPI_Service_GetGlobalByName(handle_pb,"piggyback-offset",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  pb_offset=(global.addr.i);
+  // /* query pb module */
 
 
-  /* query the status module */
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_PB,&handle_pb);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  TotalStatusExtension=(global.addr.i);
+  // err=PNMPI_Service_GetServiceByName(handle_pb,"piggyback","ip",&serv);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+  // pb_set=(PNMPIMOD_Piggyback_t) ((void*)serv.fct);
+  pb_set=PNMPIMOD_Piggyback;
+
+  // err=PNMPI_Service_GetServiceByName(handle_pb,"piggyback-size","i",&serv);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+  // pb_setsize=(PNMPIMOD_Piggyback_Size_t) ((void*)serv.fct);
+  pb_setsize=PNMPIMOD_Piggyback_Size;
+
+  // err=PNMPI_Service_GetGlobalByName(handle_pb,"piggyback-offset",'i',&global);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+  pb_offset=&piggyback_offset;
 
 
-  /* query the request module */
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  // /* query the status module */
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_STATUS,&handle_status);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
 
-  err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global);
-  if (err!=PNMPI_SUCCESS)
-    return err;
-  StatusOffsetInRequest=(global.addr.i);
+  // err=PNMPI_Service_GetGlobalByName(handle_status,"total-status-extension",'i',&global);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+  TotalStatusExtension=&add_status_storage;
 
-  /* query own module */
-  err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_CLMPI, &handle_pbd);
-  if (err!=PNMPI_SUCCESS)
-    return err;
+  // /* query the request module */
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+
+  // err=PNMPI_Service_GetGlobalByName(handle_req,"status-offset",'i',&global);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
+  StatusOffsetInRequest=&PNMPIMOD_Request_offsetInStatus;
+
+  // /* query own module */
+  // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_CLMPI, &handle_pbd);
+  // if (err!=PNMPI_SUCCESS)
+  //   return err;
 
   pb_size= sizeof(size_t);
   run_set=1;
@@ -600,7 +602,7 @@ int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MP
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
-  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %d\n", my_rank, node, tag, pb_clocks->local_clock);
+  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %lu\n", my_rank, node, tag, pb_clocks->local_clock);
   pb_clocks->local_clock++;
   local_sent_clock =  pb_clocks->local_clock;
   return res;
@@ -979,11 +981,14 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
 int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *array_of_indices, MPI_Status *array_of_statuses)
 {
   int err,i;
-
-
+  
 
   clmpi_init_registered_clocks(array_of_requests, count);
+  // for (i = 0; i < incount; i++) {
+  //   fprintf(stderr, "CLM: req: %p\n", array_of_requests[i]);
+  // }
   err=PMPI_Testsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
+
 
   if (run_check==0) return err;
 #if 0
@@ -1135,7 +1140,7 @@ _EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Dat
 _EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI:  %d: Allreduce\n", my_rank);
+    //    fprintf(stderr, "CLMPI:  %d: Allreduce\n", my_rank);
     _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
 }

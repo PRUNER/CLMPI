@@ -1,103 +1,76 @@
 include ./Makefile.config
 
-# MOD    = libpbdriver.so \
-# 	 libpb_datatype1.so libpb_datatype2.so \
-# 	 libpb_twomsg1.so libpb_twomsg2.so \
-# 	 libpb_pack1.so libpb_pack2.so\
-#          libpb_copy1.so libpb_copy2.so
+SRC_DIR=.
 
-MOD    =  libclmpi.so \
-	  libclmpi_status.so \
-	  libclmpi_request.so \
-	  libpb_datatype2.so 
+#===== edit "clmpi" to your binary name ===========
+clmpi_SRCS =	$(SRC_DIR)/clmpi_status.c \
+		$(SRC_DIR)/clmpi.cpp \
+		$(SRC_DIR)/clmpi_piggyback.c \
+		$(SRC_DIR)/clmpi_request.cpp \
 
-#libpbdriver.so
-#libpb_datatype1.so
+clmpi_OBJS =	$(SRC_DIR)/clmpi_status.o \
+		$(SRC_DIR)/clmpi.o \
+		$(SRC_DIR)/clmpi_piggyback.o \
+		$(SRC_DIR)/clmpi_request.o \
+
+clmpi_DEPS =	$(SRC_DIR)/clmpi_status.d \
+		$(SRC_DIR)/clmpi.d \
+		$(SRC_DIR)/clmpi_piggyback.d \
+		$(SRC_DIR)/clmpi_request.d \
+
+clmpi_HEAD = ./clmpi.h
+clmpi_a_LIBS  =	./libclmpi.a 
+clmpi_so_LIBS =	./libclmpi.so	
+#===================================================
+
+OBJS = $(clmpi_OBJS)
+DEPS = $(clmpi_DEPS)
+LIBS = $(clmpi_a_LIBS) $(clmpi_so_LIBS) 
+#LIBS = $(clmpi_a_LIBS) 
+
+#$@: target name
+#$<: first dependent file
+#$^: all indemendent files
+
+all: $(LIBS)
+
+-include $(DEPS)
 
 
-HEADER = pb_mod.h clmpi.h
+$(clmpi_a_LIBS):  $(clmpi_OBJS)
+	ws $^
+	ar cr  $@ $^
+	ranlib $@
 
-CFLAGS += -I$(PNMPI_INC_PATH) -std=c++0x
-CCFLAGS += -I$(PNMPI_INC_PATH)
+$(clmpi_so_LIBS):  $(clmpi_OBJS)
+	ws $^
+	$(CC) -shared -o $@ $^
 
-all: $(MOD) 
 
-pb_dt.o: 
+.SUFFIXES: .c .o
+.c.o: 
+	$(CC) $(CFLAGS) $(LDFLAGS) -c -MMD -MP $< 
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ -c $< 
 
-.SUFFIXES: .c .o .so
-
-.o.so: 
-#	$(CROSSLDXX) -o $@ $(SFLAGS) $< -ma
-	$(MPICC) -shared -o $@ $<
-
-.c.o:
-	$(MPICC) -c $(CFLAGS) $<
-
+.SUFFIXES: .cpp .o
 .cpp.o:
-	$(MPIXX) -c $(CFLAGS) $<
+	$(CC) $(CXXFLAGS) $(LDFLAGS) -c -MMD -MP $<
+	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ -c $< 
 
-
-libclmpi_request.o: clmpi_request.cpp
-	$(MPICC) -c $(CFLAGS) $<
-	mv clmpi_request.o libclmpi_request.o
-
-libclmpi_status.o: clmpi_status.c
-	$(MPICC) -c $(CFLAGS) $<
-	mv clmpi_status.o libclmpi_status.o
-
-libclmpi.o: clmpi.cpp
-	$(MPICC) -c $(CFLAGS) -DPBDRIVER_CHECK $<
-	mv clmpi.o libclmpi.o
-
-libpbdriver.o: pbdriver.c
-	$(MPICC) -c $(CFLAGS) -DPBDRIVER_CHECK $<
-	mv pbdriver.o libpbdriver.o
-
-libpb_datatype1.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_DATATYPE1 $<
-	mv piggyback.o libpb_datatype1.o
-
-libpb_datatype2.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_DATATYPE2 $<
-	mv piggyback.o libpb_datatype2.o
-
-libpb_twomsg1.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_TWOMSG1 $<
-	mv piggyback.o libpb_twomsg1.o
-
-libpb_twomsg2.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_TWOMSG2 $<
-	mv piggyback.o libpb_twomsg2.o
-
-libpb_pack1.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_PACK1 $<
-	mv piggyback.o libpb_pack1.o
-
-libpb_pack2.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_PACK2 $<
-	mv piggyback.o libpb_pack2.o
-
-libpb_copy1.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_COPY1 $<
-	mv piggyback.o libpb_copy1.o
-
-libpb_copy2.o: piggyback.c
-	$(MPICC) -c $(CFLAGS) -DPB_COPY2 $<
-	mv piggyback.o libpb_copy2.o
-
-
-install: $(MOD)
-	for mymod in $(MOD);       do ($(PNMPI_BIN_PATH)/pnmpi-patch $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
-	for myheader in $(HEADER); do ( cp                           $$myheader $(PNMPI_INC_PATH)/$$myheader  ); done
+install: $(LIBS)
+	for mymod in $(clmpi_so_LIBS); do ( $(PNMPI_BIN_PATH)/pnmpi-patch $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for mymod in $(clmpi_a_LIBS);  do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for myheader in $(clmpi_HEAD); do ( cp $$myheader $(PNMPI_INC_PATH)/$$myheader  ); done
 
 uninstall:
-	for mymod in $(MOD);       do ( rm $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
-	for myheader in $(HEADER); do ( rm $(PNMPI_INC_PATH)/$$myheader  ); done
+	for mymod in $(LIBS);          do ( rm $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for myheader in $(clmpi_HEAD); do ( rm $(PNMPI_INC_PATH)/$$myheader  ); done
 
+.PHONY: clean
 clean:
-	rm -f $(MOD) *.o
+	-rm -rf $(PROGRAM) $(OBJS) $(DEPS) $(LIBS)
 
-clobber: clean
-	rm -f *~
-	for mymod in $(MOD); do ( rm $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+.PHONY: clean_core
+clean_core:
+	-rm -rf *.core
 

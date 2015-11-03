@@ -33,9 +33,9 @@ Boston, MA 02111-1307 USA
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <mpi.h>
-#include <pnmpimod.h>
-#include "status.h"
+#include "clmpi_status.h"
 
 #ifdef AIX
 #pragma alloca
@@ -47,8 +47,7 @@ Boston, MA 02111-1307 USA
 /*........................................................................*/
 /* Variables */
 
-int add_status_storage = 0;
-
+int add_status_storage = 1;
 
 /*........................................................................*/
 /* macros */
@@ -73,91 +72,71 @@ int add_status_storage = 0;
 /*.......................................................*/
 /* Registration */
 
-int PNMPI_RegistrationPoint()
-{
-  int err;
-  PNMPI_Service_descriptor_t service;
-  PNMPI_Global_descriptor_t global;
+/* int PNMPI_RegistrationPoint() */
+/* { */
+/*   int err; */
+/*   /\* PNMPI_Service_descriptor_t service; *\/ */
+/*   /\* PNMPI_Global_descriptor_t global; *\/ */
 
+/*   /\* reset variables *\/ */
+/*   add_status_storage = -1; */
 
-  /* reset variables */
+/*   /\* register this module and its services *\/ */
+/*   /\* err=PNMPI_Service_RegisterModule(PNMPI_MODULE_STATUS); *\/ */
+/*   /\* if (err!=PNMPI_SUCCESS) *\/ */
+/*   /\*   return MPI_ERROR_PNMPI; *\/ */
 
-  add_status_storage = -1;
+/*   /\* sprintf(service.name,"add-storage"); *\/ */
+/*   /\* service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Status_RequestStorage; *\/ */
+/*   /\* sprintf(service.sig,"i"); *\/ */
+/*   /\* err=PNMPI_Service_RegisterService(&service); *\/ */
+/*   /\* if (err!=PNMPI_SUCCESS) *\/ */
+/*   /\*   return MPI_ERROR_PNMPI; *\/ */
 
-  /* register this module and its services */
+/*   /\* sprintf(global.name,"total-status-extension"); *\/ */
+/*   /\* global.addr.i=&add_status_storage; *\/ */
+/*   /\* global.sig='i'; *\/ */
+/*   /\* err=PNMPI_Service_RegisterGlobal(&global); *\/ */
+/*   /\* if (err!=PNMPI_SUCCESS) *\/ */
+/*   /\*   return MPI_ERROR_PNMPI; *\/ */
 
-  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_STATUS);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
-
-  sprintf(service.name,"add-storage");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_Status_RequestStorage;
-  sprintf(service.sig,"i");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
-
-  sprintf(global.name,"total-status-extension");
-  global.addr.i=&add_status_storage;
-  global.sig='i';
-  err=PNMPI_Service_RegisterGlobal(&global);
-  if (err!=PNMPI_SUCCESS)
-    return MPI_ERROR_PNMPI;
-
-  return err;
-}
+/*   return err; */
+/* } */
 
 
 /*.......................................................*/
 /* Init */
 
-
-
-int MPI_Init(int *argc, char ***argv)
+void init_status_storage()
 {
-  int err;
-
-  /* call the init routines */
-
-  err=PMPI_Init(argc,argv);
-
   /* when this returns, all modules have registered their
      needs for extra storage - this number is now fixed */
-
   if (add_status_storage<=0)
     {
       /* No module requested extra space,
 	 we should really disable this module, but
 	 for now we just ignore it */
-
       add_status_storage=0;
     }
+}
 
+int MPI_Init(int *argc, char ***argv)
+{
+  int err;
+  /* call the init routines */
+  err=PMPI_Init(argc,argv);
+  init_status_storage();
   return err;
 }
 
 int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 {
   int err;
-
   /* call the init routines */
   err=PMPI_Init_thread(argc,argv,required,provided);
-
-  /* when this returns, all modules have registered their
-     needs for extra storage - this number is now fixed */
-
-  if (add_status_storage<=0)
-    {
-      /* No module requested extra space,
-	 we should really disable this module, but
-	 for now we just ignore it */
-
-      add_status_storage=0;
-    }
-
+  init_status_storage();
   return err;
 }
-
 
 
 /*------------------------------------------------------------*/
@@ -187,7 +166,7 @@ int PNMPIMOD_Status_RequestStorage(int size)
 /* Evaluate Status */
 
 int MPI_Get_count(
-#ifdef HAVE_MPI3_CONST_ARGS
+#if MPI_VERSION == 3
     const
 #endif // HAVE_MPI3_CONST_ARGS
     MPI_Status *status, MPI_Datatype datatype, int *count)
@@ -198,7 +177,7 @@ int MPI_Get_count(
 }
 
 int MPI_Get_elements(
-#ifdef HAVE_MPI3_CONST_ARGS
+#if MPI_VERSION == 3
     const
 #endif // HAVE_MPI3_CONST_ARGS
     MPI_Status *status, MPI_Datatype datatype, int *count)
@@ -237,12 +216,11 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
   return err;
 }
 
-
 /*........................................................................*/
 /* Send/Recv */
 
 int MPI_Sendrecv(
-#ifdef HAVE_MPI3_CONST_ARGS
+#if MPI_VERSION == 3
     const
 #endif // HAVE_MPI3_CONST_ARGS
     void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, 
@@ -355,6 +333,7 @@ int MPI_Testsome(int incount, MPI_Request *array_of_requests, int *outcount, int
 {
   int err;
   ALLOCATE_STATUS(array_of_newstatuses,incount)
+
   err=PMPI_Testsome(incount,array_of_requests,outcount,array_of_indices,array_of_newstatuses);
   COPY_STATUS(array_of_statuses,array_of_newstatuses,*outcount)
   return err;  
