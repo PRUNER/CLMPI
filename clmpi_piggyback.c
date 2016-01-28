@@ -89,6 +89,8 @@ static char *pb_outbuffer;
 /*Mutex for multh-threaded support*/
 pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
 
+int clmpi_pb_rank;
+
 
 /*==========================================================================*/
 /* Macros - general */
@@ -709,6 +711,7 @@ int MPI_Init(int *argc, char ***argv)
   /* call the init routines */
 
   err=PMPI_Init(argc,argv);
+  PMPI_Comm_rank(MPI_COMM_WORLD, &clmpi_pb_rank);
 
   piggyback_offset=status_add(piggyback_size);
   pb_outbuffer=(char*)malloc(piggyback_size);
@@ -816,6 +819,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   /* call the init routines */
 
   err=PMPI_Init_thread(argc,argv,required,provided);
+  PMPI_Comm_rank(MPI_COMM_WORLD, &clmpi_pb_rank);
 
   piggyback_offset=status_add(piggyback_size);
   pb_outbuffer=(char*)malloc(piggyback_size);
@@ -1658,7 +1662,6 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
   int err,i;
   PACK_ERR_DECLARE_A();
 
-  //printf("GOT IN HERE!!!!!!!!!!!!!!\n");
   err=PMPI_Waitall(count,array_of_requests,array_of_statuses);
 
   for (i=0; i<count; i++)
@@ -1681,6 +1684,10 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
   int err;
   PACK_ERR_DECLARE_A();
 
+
+  /* if (clmpi_pb_rank == 0) { */
+  /*   fprintf(stderr, "PBMPI:  %d: request: %p\n", clmpi_pb_rank, *request); */
+  /* } */
   err=PMPI_Test(request, flag, status);
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL))
     {

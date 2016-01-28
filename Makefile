@@ -19,6 +19,7 @@ clmpi_DEPS =	$(SRC_DIR)/clmpi_status.d \
 		$(SRC_DIR)/clmpi_request.d \
 
 clmpi_HEAD = ./clmpi.h
+clmpi_o_LIBS  =	./libclmpi.o
 clmpi_a_LIBS  =	./libclmpi.a 
 clmpi_so_LIBS =	./libclmpi.so	
 #===================================================
@@ -38,13 +39,17 @@ all: $(LIBS)
 
 
 $(clmpi_a_LIBS):  $(clmpi_OBJS)
-	ws $^
-	ar cr  $@ $^
+#	ws 0 $^
+#	ld -o $(clmpi_o_LIBS) -r $^
+#	ar cr  $@ $^
+	ws $(clmpi_o_LIBS) 0 $^
+	ar cr  $@ $(clmpi_o_LIBS)
 	ranlib $@
 
-$(clmpi_so_LIBS):  $(clmpi_OBJS)
-	ws $^
-	$(CC) -shared -o $@ $^
+$(clmpi_so_LIBS):  $(clmpi_OBJS) $(clmpi_a_LIBS)
+#	ws 0 $^
+#	$(CC) -shared -o $@ $^
+	$(CC) -shared -o $@ $(clmpi_o_LIBS)
 
 
 .SUFFIXES: .c .o
@@ -58,7 +63,8 @@ $(clmpi_so_LIBS):  $(clmpi_OBJS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ -c $< 
 
 install: $(LIBS)
-	for mymod in $(clmpi_so_LIBS); do ( $(PNMPI_BIN_PATH)/pnmpi-patch $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+#	for mymod in $(clmpi_so_LIBS); do ( $(PNMPI_BIN_PATH)/pnmpi-patch $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for mymod in $(clmpi_so_LIBS); do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
 	for mymod in $(clmpi_a_LIBS);  do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
 	for myheader in $(clmpi_HEAD); do ( cp $$myheader $(PNMPI_INC_PATH)/$$myheader  ); done
 
@@ -68,7 +74,7 @@ uninstall:
 
 .PHONY: clean
 clean:
-	-rm -rf $(PROGRAM) $(OBJS) $(DEPS) $(LIBS)
+	-rm -rf $(PROGRAM) $(OBJS) $(DEPS) $(LIBS) $(clmpi_o_LIBS)
 
 .PHONY: clean_core
 clean_core:

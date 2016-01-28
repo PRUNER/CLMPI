@@ -13,15 +13,27 @@
 #define PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK            (1)
 #define PNMPI_MODULE_CLMPI_TEST (22)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef int (*PNMPIMOD_register_recv_clocks_t)(size_t*, int);
+int PNMPIMOD_register_recv_clocks(size_t*, int);
 //typedef int (*PNMPIMOD_set_local_clock_t)(size_t);
 typedef int (*PNMPIMOD_clock_control_t)(size_t);
+int PNMPIMOD_clock_control(size_t);
 typedef int (*PNMPIMOD_sync_clock_t)(size_t);
+int PNMPIMOD_sync_clock(size_t);
 typedef int (*PNMPIMOD_get_local_clock_t)(size_t*);
+int PNMPIMOD_get_local_clock(size_t*);
 typedef int (*PNMPIMOD_get_local_sent_clock_t)(size_t*);
+int PNMPIMOD_get_local_sent_clock(size_t*);
 typedef int (*PNMPIMOD_collective_sync_clock_t)(MPI_Comm comm);
+int PNMPIMOD_collective_sync_clock(MPI_Comm comm);
 typedef int (*PNMPIMOD_get_num_of_incomplete_sending_msg_t)(size_t*);
-
+int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t*);
+#ifdef __cplusplus
+}
+#endif
 
 //typedef int (*PNMPIMOD_fetch_next_clocks_t)(int, int*, size_t*);
 //typedef int (*PNMPIMOD_get_next_clock_t)(size_t*);

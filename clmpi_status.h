@@ -55,7 +55,7 @@ Boston, MA 02111-1307 USA
 
 #define STATUS_STORAGE(status,offset,type) STATUS_STORAGE_ARRAY(status,offset,0,type,1,0)
 
-#define STATUS_STORAGE_ARRAY(status,offset,total,type,count,num) \  
+#define STATUS_STORAGE_ARRAY(status,offset,total,type,count,num) \
 (*( \
    (type*) ( \
 	    ((char*) (status)) \

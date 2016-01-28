@@ -268,7 +268,7 @@ int MPI_Init(int *argc, char ***argv)
   // PNMPI_Service_descriptor_t serv;
   // PNMPI_Global_descriptor_t global;
   // PNMPI_modHandle_t handle_req;
-  const char *clevel_s;
+  //  const char *clevel_s;
  
   /* are we doing checks at the end? */
   // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
@@ -350,7 +350,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
   // PNMPI_Service_descriptor_t serv;
   // PNMPI_Global_descriptor_t global;
   // PNMPI_modHandle_t handle_req;
-  const char *clevel_s;
+  //  const char *clevel_s;
  
   /* are we doing checks at the end? */
   // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_REQUEST,&handle_req);
@@ -487,6 +487,7 @@ int MPI_Finalize()
 
 /*.......................................................*/
 /* Isend */
+
 
 #if MPI_VERSION == 3
 _EXTERN_C_ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
@@ -626,13 +627,13 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
   int err;
   MPI_Request req=*request;
 
-  if (CHECK_COPY(status))
-    {
-      COPY_REQUEST(err,*request,status);
-    }
-  //  fprintf(stderr, "RQMPI:  %d: request: %p\n", req_rank, *request);
+  if (CHECK_COPY(status)) {
+    COPY_REQUEST(err,*request,status);
+  }
+
+  //  fprintf(stderr, "RQMPI: %d: request: %p\n", req_rank, *request);
+
   err=PMPI_Test(request,flag,status);
-  //  fprintf(stderr, "RQMPI:  %d: request: %p end (flag: %d)\n", req_rank, *request, *flag);
   if (*flag) FREE_REQUEST(err,req,*request);
   return err;
 }

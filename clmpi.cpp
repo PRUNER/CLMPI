@@ -8,11 +8,19 @@
 #include <string.h>
 
 #include "mpi.h"
-#include "pnmpimod.h"
+#include "clmpi_common.h"
 #include "clmpi_status.h"
 #include "clmpi_request.h"
 #include "clmpi_piggyback.h"
 #include "clmpi.h"
+
+#ifndef _EXTERN_C_
+#ifdef __cplusplus
+#define _EXTERN_C_ extern "C"
+#else /* __cplusplus */
+#define _EXTERN_C_
+#endif /* __cplusplus */
+#endif /* _EXTERN_C_ */
 
 using namespace std;
 
@@ -42,7 +50,7 @@ int my_rank = -1;
 
 #define PBSET \
   if (run_set) { \
-    pbdata = (char*)pb_clocks; \ 
+    pbdata = (char*)pb_clocks; \
     pb_set(pb_size, pbdata); \
   }
 
@@ -57,7 +65,6 @@ int my_rank = -1;
 
 
 #define PBCHECK(res,status) PBCHECKARRAY(res,status,1,0)
-
 
 
 PNMPIMOD_Piggyback_t       pb_set;
@@ -106,7 +113,7 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
 
 void clmpi_irecv_test_erase(MPI_Request request) {
   if (irecv_request_map.find(request) == irecv_request_map.end()) {
-    fprintf(stderr, "CLMPI:  %d: request: %p does not exist\n", my_rank, request);
+    fprintf(stderr, "CLMPI:  %d: request: %p does not exist\n", my_rank, (void*)request);
     exit(1);
   }
   irecv_request_map.erase(request);
@@ -121,7 +128,7 @@ void clmpi_update_clock(size_t recv_clock) {
     }
     pb_clocks->local_clock++;
 
-    fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
+    //    fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
     // if (pb_clocks->local_clock < pb_clocks->next_clock) {
     //   fprintf(stderr, "CLMPI: local_clock < next_clock\n");
     //   exit(1);
@@ -175,7 +182,14 @@ int PNMPIMOD_collective_sync_clock(MPI_Comm comm)
     //    if(!my_rank) fprintf(stderr, "%d %f %d %lu\n", my_rank, MPI_Wtime() - start, coll_count++, pb_clocks->local_clock);
     //
   }
+  if (pb_clocks == NULL) {
+    fprintf(stderr, "pb_clocks is NULL\n");
+    exit(1);
+  }
+
+
   ret = PMPI_Allreduce(&pb_clocks->local_clock, &clock_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+
   // if (!my_rank) {
   //   fprintf(stderr, "Rank:  %d: ===== MPI_Collective ========: %f\n", my_rank, MPI_Wtime() - start);
   // }
@@ -237,7 +251,7 @@ int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t *size)
 
 char** cmpi_btrace() 
 {
-  int j, nptrs;
+  int nptrs;
   void *buffer[100];
   char **strings;
 
@@ -294,6 +308,9 @@ void cmpi_sync_clock(MPI_Status *status)
 
 void cmpi_set_tick()
 {
+
+  local_tick = 1; //ticks[my_rank];
+
 #if 0
   int ticks[] = {
     100,
@@ -322,8 +339,45 @@ void cmpi_set_tick()
     200
   };
 #endif
+#if 0
+  int ticks[] = {
+    1000,
+    130,
+    129,
+    207,
+    197,
+    172,
+    177,
+    274,
+    272,
+    243,
+    224,
+    285,
+    268,
+    240,
+    261,
+    415,
+    522,
+    388,
+    379,
+    470,
+    488,
+    384,
+    371,
+    481,
+    504,
+    358,
+    363,
+    477,
+    777,
+    519,
+    486,
+    709
+  };
+  local_tick = ticks[my_rank];
+#endif
 
-  local_tick = 1; //ticks[my_rank];
+
 }
 
 void cmpi_init_pb_clock()
@@ -333,6 +387,9 @@ void cmpi_init_pb_clock()
   //  PMPI_Win_lock_all(MPI_MODE_NOCHECK, mpi_clock_win);
   //  PMPI_Win_lock_all(0, mpi_clock_win);
   pb_clocks    = (struct pb_clocks*) malloc(sizeof(struct pb_clocks));
+  if (pb_clocks == NULL) {
+    fprintf(stderr, "clmpi malloc failed\n");
+  }
   pb_clocks->local_clock   = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
   //  pb_clocks->next_clock    = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
   //  pb_clocks->trigger_clock = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
@@ -341,7 +398,7 @@ void cmpi_init_pb_clock()
 
 void cmpi_update_local_sent_clock(MPI_Request tmp_req)
 {
-  size_t tmp_clock;
+  //  size_t tmp_clock;
   if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
     // tmp_clock = request_to_local_clock[tmp_req];
     // if (local_sent_clock < tmp_clock) {
@@ -363,113 +420,113 @@ void cmpi_update_local_sent_clock(MPI_Request tmp_req)
 /*.......................................................*/
 /* Registration */
 
-int PNMPI_RegistrationPoint()
-{
-  int err;
-  PNMPI_Service_descriptor_t service;
-  PNMPI_Global_descriptor_t global;
-  /* register this module and its services */
+// int PNMPI_RegistrationPoint()
+// {
+//   int err;
+//   PNMPI_Service_descriptor_t service;
+//   PNMPI_Global_descriptor_t global;
+//   /* register this module and its services */
 
-  err=PNMPI_Service_RegisterModule(PNMPI_MODULE_CLMPI);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   err=PNMPI_Service_RegisterModule(PNMPI_MODULE_CLMPI);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  /*Speicfy buffer for clock*/
-  sprintf(service.name,"clmpi_register_recv_clocks");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_recv_clocks;
-  sprintf(service.sig,"pi");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Speicfy buffer for clock*/
+//   sprintf(service.name,"clmpi_register_recv_clocks");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_register_recv_clocks;
+//   sprintf(service.sig,"pi");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  /*Disable/Enable ticking*/
-  sprintf(service.name,"clmpi_clock_control");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_clock_control;
-  sprintf(service.sig,"i");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Disable/Enable ticking*/
+//   sprintf(service.name,"clmpi_clock_control");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_clock_control;
+//   sprintf(service.sig,"i");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  /*Sync and update local clock given received clock*/
-  sprintf(service.name,"clmpi_sync_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_sync_clock;
-  sprintf(service.sig,"i");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Sync and update local clock given received clock*/
+//   sprintf(service.name,"clmpi_sync_clock");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_sync_clock;
+//   sprintf(service.sig,"i");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  /*Get local clock*/
-  sprintf(service.name,"clmpi_get_local_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_clock;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Get local clock*/
+//   sprintf(service.name,"clmpi_get_local_clock");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_clock;
+//   sprintf(service.sig,"p");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-#ifdef  DBG_SC
-  /*Get local clock*/
-  sprintf(service.name,"clmpi_get_local_sent_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_sent_clock;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
-#endif
+// #ifdef  DBG_SC
+//   /*Get local clock*/
+//   sprintf(service.name,"clmpi_get_local_sent_clock");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_local_sent_clock;
+//   sprintf(service.sig,"p");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
+// #endif
 
-  /*Get collective sync clock*/
-  sprintf(service.name,"clmpi_collective_sync_clock");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_collective_sync_clock;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Get collective sync clock*/
+//   sprintf(service.name,"clmpi_collective_sync_clock");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_collective_sync_clock;
+//   sprintf(service.sig,"p");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  /*Get get_num_of_incomplete_sending_msg*/
-  sprintf(service.name,"clmpi_get_incomplete_smsg_num");
-  service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_num_of_incomplete_sending_msg;
-  sprintf(service.sig,"p");
-  err=PNMPI_Service_RegisterService(&service);
-  if (err!=PNMPI_SUCCESS) {
-    return MPI_ERROR_PNMPI;
-  }
+//   /*Get get_num_of_incomplete_sending_msg*/
+//   sprintf(service.name,"clmpi_get_incomplete_smsg_num");
+//   service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_num_of_incomplete_sending_msg;
+//   sprintf(service.sig,"p");
+//   err=PNMPI_Service_RegisterService(&service);
+//   if (err!=PNMPI_SUCCESS) {
+//     return MPI_ERROR_PNMPI;
+//   }
 
-  // /*Retrieve remote next_clocks*/
-  // sprintf(service.name,"clmpi_fetch_next_clocks");
-  // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_fetch_next_clocks;
-  // sprintf(service.sig,"ipp");
-  // err=PNMPI_Service_RegisterService(&service);
-  // if (err!=PNMPI_SUCCESS) {
-  //   return MPI_ERROR_PNMPI;
-  // }
+//   // /*Retrieve remote next_clocks*/
+//   // sprintf(service.name,"clmpi_fetch_next_clocks");
+//   // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_fetch_next_clocks;
+//   // sprintf(service.sig,"ipp");
+//   // err=PNMPI_Service_RegisterService(&service);
+//   // if (err!=PNMPI_SUCCESS) {
+//   //   return MPI_ERROR_PNMPI;
+//   // }
 
 
-  // /*Get my next_clock */
-  // sprintf(service.name,"clmpi_get_next_clock");
-  // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_next_clock;
-  // sprintf(service.sig,"p");
-  // err=PNMPI_Service_RegisterService(&service);
-  // if (err!=PNMPI_SUCCESS) {
-  //   return MPI_ERROR_PNMPI;
-  // }
+//   // /*Get my next_clock */
+//   // sprintf(service.name,"clmpi_get_next_clock");
+//   // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_get_next_clock;
+//   // sprintf(service.sig,"p");
+//   // err=PNMPI_Service_RegisterService(&service);
+//   // if (err!=PNMPI_SUCCESS) {
+//   //   return MPI_ERROR_PNMPI;
+//   // }
 
-  // /*Set my next_clock*/
-  // sprintf(service.name,"clmpi_set_next_clock");
-  // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_set_next_clock;
-  // sprintf(service.sig,"p");
-  // err=PNMPI_Service_RegisterService(&service);
-  // if (err!=PNMPI_SUCCESS) {
-  //   return MPI_ERROR_PNMPI;
-  // }
+//   // /*Set my next_clock*/
+//   // sprintf(service.name,"clmpi_set_next_clock");
+//   // service.fct=(PNMPI_Service_Fct_t) PNMPIMOD_set_next_clock;
+//   // sprintf(service.sig,"p");
+//   // err=PNMPI_Service_RegisterService(&service);
+//   // if (err!=PNMPI_SUCCESS) {
+//   //   return MPI_ERROR_PNMPI;
+//   // }
 
-  return err;
-}
+//   return err;
+// }
 
 /*.......................................................*/
 /* Init PNMPI*/
@@ -482,7 +539,6 @@ int cmpi_init_pnmpi() {
   // const char *vlevel_s;
 
   // /* query pb module */
-
 
   // err=PNMPI_Service_GetModuleByName(PNMPI_MODULE_PB,&handle_pb);
   // if (err!=PNMPI_SUCCESS)
@@ -536,13 +592,13 @@ int cmpi_init_pnmpi() {
   run_check=1;
 
   err=pb_setsize(pb_size);
-  if (err!=PNMPI_SUCCESS)
+  if (!err)
     return err;
 
   pbdata=(char *)malloc(pb_size);
-  if (pbdata==NULL) return MPI_ERROR_MEM;
+  if (pbdata==NULL) return 1;
 
-  return PNMPI_SUCCESS;
+  return MPI_SUCCESS;
 }
 
 
@@ -553,11 +609,12 @@ int cmpi_init_pnmpi() {
 int MPI_Init(int *argc, char ***argv)
 {
   int err;
-  int provided;
+  //  int provided;
 
+  //  CLMPI_DBG("test");
   cmpi_init_pb_clock();
   err = cmpi_init_pnmpi();
-  if (err != PNMPI_SUCCESS) {
+  if (err != MPI_SUCCESS) {
     fprintf(stderr, "cmpi_init_pnmpi failed\n");
   }
 
@@ -575,7 +632,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 
   cmpi_init_pb_clock();
   err = cmpi_init_pnmpi();
-  if (err != PNMPI_SUCCESS) {
+  if (err != MPI_SUCCESS) {
     fprintf(stderr, "cmpi_init_pnmpi failed\n");
   }
 
@@ -592,27 +649,36 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
 /*.......................................................*/
 /* setting PB if enabled */
 
-
 #if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Send(void *buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#define CLMPI_SEND_BUF_void void
 #else
-int MPI_Send(const void *buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+#define CLMPI_SEND_BUF_void const void
 #endif
+
+
+int MPI_Send(CLMPI_SEND_BUF_void *buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
 {
   int res;
   PBSET;
   res=PMPI_Send(buf,num,dtype,node,tag,comm);
-  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %lu\n", my_rank, node, tag, pb_clocks->local_clock);
+  //  fprintf(stderr, " Rank: %d,  Send: dest: %d, tag: %d, clock: %lu\n", my_rank, node, tag, pb_clocks->local_clock);
   pb_clocks->local_clock++;
   local_sent_clock =  pb_clocks->local_clock;
   return res;
 }
 
-#if MPI_VERSION == 1  || MPI_VERSION == 2
-int MPI_Bsend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#else
-int MPI_Bsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#endif
+int MPI_Send_init(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype,
+		  int dest, int tag, MPI_Comm comm, MPI_Request *request)
+{
+  int res;
+  PBSET;
+  res=PMPI_Send_init(buf, count, datatype, dest, tag, comm, request);
+  pb_clocks->local_clock++;
+  local_sent_clock =  pb_clocks->local_clock;
+  return res;
+}
+
+int MPI_Bsend(CLMPI_SEND_BUF_void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
 {
   int res;
   PBSET;
@@ -621,25 +687,37 @@ int MPI_Bsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   return res;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Ssend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#else
-int MPI_Ssend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#endif
+int MPI_Bsend_init(CLMPI_SEND_BUF_void* buf, int count, MPI_Datatype datatype,
+		   int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int res;
   PBSET;
-  res=PMPI_Ssend(buf,num,dtype,node,tag,comm);
-
+  res=PMPI_Bsend_init(buf, count, datatype, dest, tag, comm, request);
   pb_clocks->local_clock++;
   return res;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Rsend(void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#else
-int MPI_Rsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
-#endif
+
+int MPI_Ssend(CLMPI_SEND_BUF_void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
+{
+  int res;
+  PBSET;
+  res=PMPI_Ssend(buf,num,dtype,node,tag,comm);
+  pb_clocks->local_clock++;
+  return res;
+}
+
+int MPI_Ssend_init(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype,
+		   int dest, int tag, MPI_Comm comm, MPI_Request *request)
+{
+  int res;
+  PBSET;
+  res=PMPI_Ssend_init(buf, count, datatype, dest, tag, comm, request);
+  pb_clocks->local_clock++;
+  return res;
+}
+
+int MPI_Rsend(CLMPI_SEND_BUF_void* buf, int num, MPI_Datatype dtype, int node, int tag, MPI_Comm comm)
 {
   int res;
   PBSET;
@@ -648,15 +726,22 @@ int MPI_Rsend(const void* buf, int num, MPI_Datatype dtype, int node, int tag, M
   return res;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#else
-int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#endif
+int MPI_Rsend_init(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype,
+		   int dest, int tag, MPI_Comm comm, MPI_Request *request)
+{
+  int res;
+  PBSET;
+  res=PMPI_Rsend_init(buf, count, datatype, dest, tag, comm, request);
+  pb_clocks->local_clock++;
+  return res;
+}
+
+
+int MPI_Isend(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int err;
   PBSET;
-  int datatype_size;
+  //  int datatype_size;
   //  if (dest == 0) fprintf(stderr, "   %d %d\n", local_clock, rank);
   //  if (my_rank == 0) fprintf(stderr, "request: %p, my_rank: %d Send: dest: %d tag: %d clock: %lu\n", *request, my_rank, dest, tag, local_clock);
   // if (dest == 1) fprintf(stderr, "my_rank: %d Send: dest: %d tag: %d clock: %d\n", my_rank, dest, tag, local_clock);
@@ -665,24 +750,17 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
   // PMPI_Type_size(datatype, &datatype_size);
   // fprintf(stderr, "Rank: %d Send: dest: %d tag: %d clock: %lu, request: %p sent_clock: %lu dsize: %d\n", 
   // 	  my_rank, dest, tag, pb_clocks->local_clock, *request, local_sent_clock, datatype_size * count);
-
 #ifdef  DBG_SC
   request_to_local_clock[*request] = pb_clocks->local_clock;
   // fprintf(stderr, "CLMPI:  %d: registered request(SEND): %p\n", my_rank, *request);
 #endif
   //  sleep(1);
   pb_clocks->local_clock++;
-
-  fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
-  
+  //  fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);  
   return err;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Ibsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#else
-int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#endif
+int MPI_Ibsend(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int err;
   PBSET;
@@ -694,11 +772,7 @@ int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   return err;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Issend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#else
-int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#endif
+int MPI_Issend(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int err;
   PBSET;
@@ -710,11 +784,7 @@ int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
   return err;
 }
 
-#if MPI_VERSION == 1 || MPI_VERSION == 2
-int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#else
-int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
-#endif
+int MPI_Irsend(CLMPI_SEND_BUF_void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int err;
   PBSET;
@@ -752,12 +822,12 @@ int MPI_Recv(void* buf, int num, MPI_Datatype dtype, int node,
   return err;
 }
 
-
-int MPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, 
+int MPI_Sendrecv(CLMPI_SEND_BUF_void *sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, 
 		 void *recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
 		 MPI_Comm comm, MPI_Status *status)
 {
   int err;
+  PBSET;
   err=PMPI_Sendrecv(sendbuf,sendcount,sendtype,dest,sendtag,
 		    recvbuf,recvcount,recvtype,source,recvtag,comm,status);
   if (run_check==0) return err;
@@ -769,6 +839,7 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, 
 			 MPI_Comm comm, MPI_Status *status)
 {
   int err;
+  PBSET;
   err=PMPI_Sendrecv_replace(buf,count,datatype,sendtag,dest,recvtag,dest,comm,status);
   if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
   return err;
@@ -846,7 +917,7 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
-	size_t tmp_clock;
+	//	size_t tmp_clock;
 	cmpi_update_local_sent_clock(tmp_req);
 	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
 	//   tmp_clock = request_to_local_clock[tmp_req];
@@ -870,12 +941,13 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
   int err;
-  size_t tmp_clock;
+  //  size_t tmp_clock;
 
 
   MPI_Request req = *request;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Test(request, flag, status);
+
   
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
@@ -898,7 +970,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUS(status).inreq;
-	size_t tmp_clock;
+	//	size_t tmp_clock;
 	cmpi_update_local_sent_clock(tmp_req);
 	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
 	//   tmp_clock = request_to_local_clock[tmp_req];
@@ -948,7 +1020,7 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
       if (err == MPI_SUCCESS) {
-	int matched_index;
+	//	int matched_index;
 	if (registered_buff_clocks != NULL) {
 	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
 	  //	  fprintf(stderr, "ReMPI:%d: [%d |%d|] (outcount: %d)\n", my_rank, 1, array_of_statuses[matched_index].MPI_SOURCE, *outcount);
@@ -1016,7 +1088,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 	}
 #ifdef DBG_SC
 	MPI_Request tmp_req = COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq;
-	size_t tmp_clock;
+	//	size_t tmp_clock;
 	cmpi_update_local_sent_clock(tmp_req);
 	// if (request_to_local_clock.find(tmp_req) != request_to_local_clock.end()) {
 	//   tmp_clock = request_to_local_clock[tmp_req];
@@ -1109,7 +1181,12 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
   return err;
 }
 
-int MPI_Get_count(MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2) {
+#if MPI_VERSION == 3
+int MPI_Get_count(const MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2)
+#else
+int MPI_Get_count(MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2)
+#endif
+{
   int _wrap_py_return_val = 0;
   {
     /*TODO: arg_2 include piggyback message size, so subtract the size
@@ -1119,12 +1196,13 @@ int MPI_Get_count(MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2) {
 }
 
 
-int MPI_Finalize()
+_EXTERN_C_ int MPI_Finalize()
 {
   //  fprintf(stderr, "clock: %d %d\n", local_clock, my_rank);
   //  PMPI_Win_unlock_all(mpi_clock_win);
   //  PMPI_Win_free(&mpi_clock_win);
   //  PMPI_Comm_free(&mpi_clock_win_comm);
+  //  fprintf(stderr, "CLMPI: %d: %d\n", my_rank, isend_count);
   return PMPI_Finalize();
 
 }
@@ -1140,7 +1218,6 @@ _EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Dat
 _EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
-    //    fprintf(stderr, "CLMPI:  %d: Allreduce\n", my_rank);
     _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
 }
