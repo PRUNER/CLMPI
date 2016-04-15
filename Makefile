@@ -39,15 +39,15 @@ all: $(LIBS)
 
 
 $(clmpi_a_LIBS):  $(clmpi_OBJS)
-#	ws 0 $^
+#	stack_pmpi 0 $^
 #	ld -o $(clmpi_o_LIBS) -r $^
 #	ar cr  $@ $^
-	ws $(clmpi_o_LIBS) 0 $^
+	stack_pmpi $(clmpi_o_LIBS) 0 $^
 	ar cr  $@ $(clmpi_o_LIBS)
 	ranlib $@
 
 $(clmpi_so_LIBS):  $(clmpi_OBJS) $(clmpi_a_LIBS)
-#	ws 0 $^
+#	stack_pmpi 0 $^
 #	$(CC) -shared -o $@ $^
 	$(CC) -shared -o $@ $(clmpi_o_LIBS)
 
