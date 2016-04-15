@@ -40,10 +40,7 @@ unordered_map<MPI_Request, size_t> request_to_local_clock;
 #endif
 
 pb_clocks_t *pb_clocks;
-//MPI_Comm mpi_clock_win_comm;
-//MPI_Win  mpi_clock_win;
 
-//size_t local_clock= PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
 size_t local_tick = 0;
 char *pbdata;
 int my_rank = -1;
@@ -94,21 +91,14 @@ void clmpi_init_registered_clocks(MPI_Request *request, int length) {
   }
 
   for (int i = 0; i < length; i++) {
-    // if (my_rank != 0) {
-    //   fprintf(stderr, "i: %d/%d: rank: %d:  siez:%d \n", i, length, my_rank, irecv_request_map.size());
-    // }
     if (irecv_request_map.find(request[i]) != irecv_request_map.end()) {
       /*If this reuquest[i] is from irecv*/
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_UNMATCHED_RECV_REQ_CLOCK;
     } else {
       /*If this reuquest[i] is from isend*/
-      //      fprintf(stderr, "rank: %d: nooo request: %p siez:%d \n", my_rank, request[i], irecv_request_map.size());
-      // exit(1);
       registered_buff_clocks[i] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
     }    
-    //    fprintf(stderr, "Init: request[%d] = %lu\n",i , registered_buff_clocks[i]);
   }
-  
 }
 
 void clmpi_irecv_test_erase(MPI_Request request) {
@@ -117,24 +107,14 @@ void clmpi_irecv_test_erase(MPI_Request request) {
     exit(1);
   }
   irecv_request_map.erase(request);
-  //  fprintf(stderr, "CLMPI:  %d: erase request: %p size: %d\n", my_rank, request, irecv_request_map.size());
 }
 
 void clmpi_update_clock(size_t recv_clock) {
   if (sync_clock) {
-    //    if (rank == 0) fprintf(stderr, "Recv: clock: %d", local_clock);
     if (pb_clocks->local_clock <= recv_clock) {
       pb_clocks->local_clock = recv_clock;	
     }
     pb_clocks->local_clock++;
-
-    //    fprintf(stderr, "CLMPI:  %d: %f %lu\n", my_rank, MPI_Wtime(), pb_clocks->local_clock);
-    // if (pb_clocks->local_clock < pb_clocks->next_clock) {
-    //   fprintf(stderr, "CLMPI: local_clock < next_clock\n");
-    //   exit(1);
-    // }
-    // pb_clocks->next_clock = pb_clocks->local_clock;
-    //    if(!my_rank) fprintf(stderr, "%d %f %d %lu\n", my_rank, MPI_Wtime() - start, coll_count++, pb_clocks->local_clock);
   }
 }
 
