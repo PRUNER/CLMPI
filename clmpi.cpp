@@ -85,6 +85,8 @@ static int     sync_clock = 1;
 static unordered_map<MPI_Request, MPI_Request*> irecv_request_map;
 
 static void clmpi_init_registered_clocks(MPI_Request *request, int length) {
+  if (!sync_clock) return;
+  
   if (registered_buff_clocks == NULL) {
     fprintf(stderr, "CLMPI: registered clock is NULL\n");
     *registered_buff_clocks = 1;
@@ -110,15 +112,30 @@ static void clmpi_irecv_test_erase(MPI_Request request) {
   irecv_request_map.erase(request);
 }
 
+int tick = 10;
+
 static void clmpi_tick_clock()
 {
-  pb_clocks->local_clock++;
+  if (sync_clock) {
+    pb_clocks->local_clock += tick;
+  }
+  return;
+}
+
+void CLMPI_tick_clock()
+{
+  REMPI_ERR("non expected call");
+  clmpi_tick_clock();
+  return;
 }
 
 static void clmpi_update_clock(size_t recv_clock) {
   if (sync_clock) {
     if (pb_clocks->local_clock <= recv_clock) {
-      pb_clocks->local_clock = recv_clock;	
+      pb_clocks->local_clock = recv_clock;
+      //      tick++;
+    } else {
+      //      if (tick > 1) tick--;
     }
     clmpi_tick_clock();
   }
@@ -244,6 +261,7 @@ int PNMPIMOD_collective_sync_clock(MPI_Comm comm)
     exit(1);
   }
   ret = PMPI_Allreduce(&pb_clocks->local_clock, &clock_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+
   pb_clocks->local_clock = clock_max;
   clmpi_tick_clock();
   return ret;
@@ -253,6 +271,9 @@ int PNMPIMOD_collective_sync_clock(MPI_Comm comm)
 #ifdef  DBG_SC
 int PNMPIMOD_get_local_sent_clock(size_t *clock)
 { 
+  fprintf(stderr, "PNMPIMOD_get_local_sent_cloc is called\n");
+  assert(0);
+  exit(1);
   *clock = local_sent_clock;
   return MPI_SUCCESS;
 }

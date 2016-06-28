@@ -31,6 +31,7 @@ typedef int (*PNMPIMOD_collective_sync_clock_t)(MPI_Comm comm);
 int PNMPIMOD_collective_sync_clock(MPI_Comm comm);
 typedef int (*PNMPIMOD_get_num_of_incomplete_sending_msg_t)(size_t*);
 int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t*);
+void CLMPI_tick_clock();
 #ifdef __cplusplus
 }
 #endif
