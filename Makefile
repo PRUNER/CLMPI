@@ -95,10 +95,14 @@ install: $(LIBS)
 	for mymod in $(clmpi_so_LIBS); do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
 	for mymod in $(clmpi_a_LIBS);  do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
 	for myheader in $(clmpi_HEAD); do ( cp $$myheader $(PNMPI_INC_PATH)/$$myheader  ); done
+	for mymod in $(pbmpi_so_LIBS); do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for mymod in $(pbmpi_a_LIBS);  do ( cp $$mymod    $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
+	for myheader in $(pbmpi_HEAD); do ( cp $$myheader $(PNMPI_INC_PATH)/$$myheader  ); done
 
 uninstall:
 	for mymod in $(LIBS);          do ( rm $(PNMPI_MOD_LIB_PATH)/$$mymod ); done
 	for myheader in $(clmpi_HEAD); do ( rm $(PNMPI_INC_PATH)/$$myheader  ); done
+	for myheader in $(pbmpi_HEAD); do ( rm $(PNMPI_INC_PATH)/$$myheader  ); done
 
 .PHONY: clean
 clean:
