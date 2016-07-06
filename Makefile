@@ -75,7 +75,6 @@ $(pbmpi_a_LIBS):  $(pbmpi_OBJS)
 
 $(pbmpi_so_LIBS):  $(pbmpi_OBJS) $(pbmpi_a_LIBS)
 	$(CC) -shared -o $@ $(pbmpi_o_LIBS)
-	rm $(pbmpi_o_LIBS)
 
 
 
