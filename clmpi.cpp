@@ -112,7 +112,7 @@ static void clmpi_irecv_test_erase(MPI_Request request) {
   irecv_request_map.erase(request);
 }
 
-int tick = 10;
+int tick = 1;
 
 static void clmpi_tick_clock()
 {
@@ -124,7 +124,8 @@ static void clmpi_tick_clock()
 
 void CLMPI_tick_clock()
 {
-  REMPI_ERR("non expected call");
+  fprintf(stderr, "non expected to be called\n");
+  exit(1);
   clmpi_tick_clock();
   return;
 }

@@ -24,10 +24,31 @@ clmpi_a_LIBS  =	./libclmpi.a
 clmpi_so_LIBS =	./libclmpi.so	
 #===================================================
 
-OBJS = $(clmpi_OBJS)
-DEPS = $(clmpi_DEPS)
-LIBS = $(clmpi_a_LIBS) $(clmpi_so_LIBS) 
-#LIBS = $(clmpi_a_LIBS) 
+
+#===== edit "clmpi" to your binary name ===========
+pbmpi_SRCS =	$(SRC_DIR)/clmpi_status.c \
+		$(SRC_DIR)/pbmpi.cpp \
+		$(SRC_DIR)/clmpi_piggyback.c \
+		$(SRC_DIR)/clmpi_request.cpp \
+
+#pbmpi_OBJS =	$(pbmpi_SRCS:%.c=%.o)
+pbmpi_OBJS =	$(SRC_DIR)/clmpi_status.o \
+		$(SRC_DIR)/pbmpi.o \
+		$(SRC_DIR)/clmpi_piggyback.o \
+		$(SRC_DIR)/clmpi_request.o \
+
+pbmpi_DEPS =  $(pbmpi_OBJS:%.o=%.d)
+
+
+pbmpi_HEAD = ./pbmpi.h
+pbmpi_o_LIBS  = ./libpbmpi.o
+pbmpi_a_LIBS  =	./libpbmpi.a 
+pbmpi_so_LIBS =	./libpbmpi.so	
+#===================================================
+
+OBJS = $(clmpi_OBJS) $(pbmpi_OBJS)
+DEPS = $(clmpi_DEPS) $(pbmpi_DEPS)
+LIBS = $(clmpi_a_LIBS) $(clmpi_so_LIBS) $(pbmpi_a_LIBS) $(pbmpi_so_LIBS) 
 
 #$@: target name
 #$<: first dependent file
@@ -39,17 +60,24 @@ all: $(LIBS)
 
 
 $(clmpi_a_LIBS):  $(clmpi_OBJS)
-#	stack_pmpi 0 $^
-#	ld -o $(clmpi_o_LIBS) -r $^
-#	ar cr  $@ $^
 	stack_pmpi $(clmpi_o_LIBS) 0 $^
 	ar cr  $@ $(clmpi_o_LIBS)
 	ranlib $@
 
 $(clmpi_so_LIBS):  $(clmpi_OBJS) $(clmpi_a_LIBS)
-#	stack_pmpi 0 $^
-#	$(CC) -shared -o $@ $^
 	$(CC) -shared -o $@ $(clmpi_o_LIBS)
+
+
+$(pbmpi_a_LIBS):  $(pbmpi_OBJS)
+	stack_pmpi $(pbmpi_o_LIBS) 0 $^
+	ar cr  $@ $(pbmpi_o_LIBS)
+	ranlib $@
+
+$(pbmpi_so_LIBS):  $(pbmpi_OBJS) $(pbmpi_a_LIBS)
+	$(CC) -shared -o $@ $(pbmpi_o_LIBS)
+	rm $(pbmpi_o_LIBS)
+
+
 
 
 .SUFFIXES: .c .o
