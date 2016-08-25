@@ -572,7 +572,7 @@ _EXTERN_C_ int MPI_Irsend(void *buf, int count, MPI_Datatype datatype, int dest,
 
   int err;
 
-  err=PMPI_Ibsend(buf,count,datatype,dest,tag,comm,request);
+  err=PMPI_Irsend(buf,count,datatype,dest,tag,comm,request);
   ASSOCIATE_REQUEST(*request,PNMPIMOD_REQUESTS_RSEND,(void*)buf,count,datatype,dest,tag,comm,0);
   return err;
 }

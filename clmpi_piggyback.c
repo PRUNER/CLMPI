@@ -551,8 +551,7 @@ int clmpi_pb_rank;
 
 int PNMPIMOD_Piggyback(int size,char *ptr)
 {
-  PBCOPY(pb_outbuffer
-,ptr,size);
+  PBCOPY(pb_outbuffer,ptr,size);
   return MPI_SUCCESS;
 }
 
@@ -563,6 +562,8 @@ int PNMPIMOD_Piggyback_Size(int size)
   piggyback_size=size;
   return MPI_SUCCESS;
 }
+
+
 
 
 
@@ -1754,6 +1755,8 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
 
   return err;
 }
+
+
 
 
 /*--------------------------------------------------------------------------*/
