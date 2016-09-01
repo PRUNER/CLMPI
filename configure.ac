@@ -29,6 +29,7 @@ if test "$stack_pmpi_DIR" = ""; then
 fi
 AC_SUBST(stack_pmpi_DIR)
 
+
 #### Checks for programs.
 LX_FIND_MPI # TODO: AC_LANG_CASE([C++], ...) is not executed
 

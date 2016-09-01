@@ -24,6 +24,7 @@
 # The default value for foo_XXXFLAGS is $(AM_XXXFLAGS).
 
 
+
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
@@ -44,8 +45,9 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = src
-DIST_COMMON = $(dist_install_lib_SCRIPTS) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in
+DIST_COMMON = $(dist_install_non_pic_lib_SCRIPTS) \
+	$(dist_install_pic_lib_SCRIPTS) $(include_HEADERS) \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -78,7 +80,9 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(install_libdir)"
+am__installdirs = "$(DESTDIR)$(libdir)" \
+	"$(DESTDIR)$(install_non_pic_libdir)" \
+	"$(DESTDIR)$(install_pic_libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libclmpi_la_LIBADD =
 am_libclmpi_la_OBJECTS = libclmpi_la-clmpi_status.lo \
@@ -90,7 +94,8 @@ am_libpbmpi_la_OBJECTS = libpbmpi_la-clmpi_status.lo \
 	libpbmpi_la-pbmpi.lo libpbmpi_la-clmpi_piggyback.lo \
 	libpbmpi_la-clmpi_request.lo
 libpbmpi_la_OBJECTS = $(am_libpbmpi_la_OBJECTS)
-SCRIPTS = $(dist_install_lib_SCRIPTS)
+SCRIPTS = $(dist_install_non_pic_lib_SCRIPTS) \
+	$(dist_install_pic_lib_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__depfiles_maybe = depfiles
@@ -115,6 +120,7 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libclmpi_la_SOURCES) $(libpbmpi_la_SOURCES)
 DIST_SOURCES = $(libclmpi_la_SOURCES) $(libpbmpi_la_SOURCES)
+HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -263,7 +269,7 @@ libclmpi_la_OBJECT = ./libclmpi_la-libclmpi.lo
 libclmpi_la_OBJECTS_O = $(libclmpi_la_OBJECTS:%.lo=%.o) 
 libclmpi_la_STACK_PMPI_OBJECT_O = ./libclmpi.o
 libclmpi_la_LIBS_OBJECTS_O = $(libclmpi_la_OBJECTS:%.lo=.libs/%.o) 
-libclmpi_la_LIBS_STACK_PMPI_OBJECT_O = ./.libs/.libs_libclmpi.o
+libclmpi_la_LIBS_STACK_PMPI_OBJECT_O = ./.libs/libclmpi.o
 
 # ===== libpbmpi =====
 libpbmpi_la_SOURCES = clmpi_status.c \
@@ -277,9 +283,16 @@ libpbmpi_la_OBJECT = ./libpbmpi_la-libpbmpi.lo
 libpbmpi_la_OBJECTS_O = $(libpbmpi_la_OBJECTS:%.lo=%.o) 
 libpbmpi_la_STACK_PMPI_OBJECT_O = ./libpbmpi.o
 libpbmpi_la_LIBS_OBJECTS_O = $(libpbmpi_la_OBJECTS:%.lo=.libs/%.o) 
-libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O = ./.libs/.libs_libpbmpi.o
-install_libdir = $(libdir)
-dist_install_lib_SCRIPTS = $(libclmpi_la_STACK_PMPI_OBJECT_O) $(libclmpi_la_LIBS_STACK_PMPI_OBJECT_O) $(libpbmpi_la_STACK_PMPI_OBJECT_O) $(libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O)
+libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O = ./.libs/libpbmpi.o
+
+# ===== Header file installation =====
+include_HEADERS = clmpi.h pbmpi.h
+
+# ===== Object file installation =====
+install_pic_libdir = $(libdir)/.libs
+dist_install_pic_lib_SCRIPTS = $(libclmpi_la_LIBS_STACK_PMPI_OBJECT_O) $(libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O)
+install_non_pic_libdir = $(libdir)
+dist_install_non_pic_lib_SCRIPTS = $(libclmpi_la_STACK_PMPI_OBJECT_O) $(libpbmpi_la_STACK_PMPI_OBJECT_O)
 all: all-am
 
 .SUFFIXES:
@@ -349,10 +362,10 @@ libclmpi.la: $(libclmpi_la_OBJECTS) $(libclmpi_la_DEPENDENCIES)
 	$(CXXLINK) -rpath $(libdir) $(libclmpi_la_OBJECTS) $(libclmpi_la_LIBADD) $(LIBS)
 libpbmpi.la: $(libpbmpi_la_OBJECTS) $(libpbmpi_la_DEPENDENCIES) 
 	$(CXXLINK) -rpath $(libdir) $(libpbmpi_la_OBJECTS) $(libpbmpi_la_LIBADD) $(LIBS)
-install-dist_install_libSCRIPTS: $(dist_install_lib_SCRIPTS)
+install-dist_install_non_pic_libSCRIPTS: $(dist_install_non_pic_lib_SCRIPTS)
 	@$(NORMAL_INSTALL)
-	test -z "$(install_libdir)" || $(MKDIR_P) "$(DESTDIR)$(install_libdir)"
-	@list='$(dist_install_lib_SCRIPTS)'; test -n "$(install_libdir)" || list=; \
+	test -z "$(install_non_pic_libdir)" || $(MKDIR_P) "$(DESTDIR)$(install_non_pic_libdir)"
+	@list='$(dist_install_non_pic_lib_SCRIPTS)'; test -n "$(install_non_pic_libdir)" || list=; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
@@ -370,19 +383,53 @@ install-dist_install_libSCRIPTS: $(dist_install_lib_SCRIPTS)
 	while read type dir files; do \
 	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
 	     test -z "$$files" || { \
-	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(install_libdir)$$dir'"; \
-	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(install_libdir)$$dir" || exit $$?; \
+	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(install_non_pic_libdir)$$dir'"; \
+	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(install_non_pic_libdir)$$dir" || exit $$?; \
 	     } \
 	; done
 
-uninstall-dist_install_libSCRIPTS:
+uninstall-dist_install_non_pic_libSCRIPTS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(dist_install_lib_SCRIPTS)'; test -n "$(install_libdir)" || exit 0; \
+	@list='$(dist_install_non_pic_lib_SCRIPTS)'; test -n "$(install_non_pic_libdir)" || exit 0; \
 	files=`for p in $$list; do echo "$$p"; done | \
 	       sed -e 's,.*/,,;$(transform)'`; \
 	test -n "$$list" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(install_libdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(install_libdir)" && rm -f $$files
+	echo " ( cd '$(DESTDIR)$(install_non_pic_libdir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(install_non_pic_libdir)" && rm -f $$files
+install-dist_install_pic_libSCRIPTS: $(dist_install_pic_lib_SCRIPTS)
+	@$(NORMAL_INSTALL)
+	test -z "$(install_pic_libdir)" || $(MKDIR_P) "$(DESTDIR)$(install_pic_libdir)"
+	@list='$(dist_install_pic_lib_SCRIPTS)'; test -n "$(install_pic_libdir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
+	done | \
+	sed -e 'p;s,.*/,,;n' \
+	    -e 'h;s|.*|.|' \
+	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
+	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
+	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
+	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
+	      if (++n[d] == $(am__install_max)) { \
+		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
+	    else { print "f", d "/" $$4, $$1 } } \
+	  END { for (d in files) print "f", d, files[d] }' | \
+	while read type dir files; do \
+	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
+	     test -z "$$files" || { \
+	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(install_pic_libdir)$$dir'"; \
+	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(install_pic_libdir)$$dir" || exit $$?; \
+	     } \
+	; done
+
+uninstall-dist_install_pic_libSCRIPTS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_install_pic_lib_SCRIPTS)'; test -n "$(install_pic_libdir)" || exit 0; \
+	files=`for p in $$list; do echo "$$p"; done | \
+	       sed -e 's,.*/,,;$(transform)'`; \
+	test -n "$$list" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(install_pic_libdir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(install_pic_libdir)" && rm -f $$files
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -502,6 +549,26 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+install-includeHEADERS: $(include_HEADERS)
+	@$(NORMAL_INSTALL)
+	test -z "$(includedir)" || $(MKDIR_P) "$(DESTDIR)$(includedir)"
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
+	done
+
+uninstall-includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	test -n "$$files" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(includedir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(includedir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -587,9 +654,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(SCRIPTS) all-local
+all-am: Makefile $(LTLIBRARIES) $(SCRIPTS) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(install_libdir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(install_non_pic_libdir)" "$(DESTDIR)$(install_pic_libdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -619,7 +686,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libLTLIBRARIES clean-libtool clean-local \
+clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -640,7 +707,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dist_install_libSCRIPTS
+install-data-am: install-dist_install_non_pic_libSCRIPTS \
+	install-dist_install_pic_libSCRIPTS install-includeHEADERS
 
 install-dvi: install-dvi-am
 
@@ -686,63 +754,47 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-dist_install_libSCRIPTS \
+uninstall-am: uninstall-dist_install_non_pic_libSCRIPTS \
+	uninstall-dist_install_pic_libSCRIPTS uninstall-includeHEADERS \
 	uninstall-libLTLIBRARIES
 
 .MAKE: install-am install-strip
 
-.PHONY: CTAGS GTAGS all all-am all-local check check-am clean \
-	clean-generic clean-libLTLIBRARIES clean-libtool clean-local \
-	ctags distclean distclean-compile distclean-generic \
-	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-dist_install_libSCRIPTS install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am \
+.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
+	clean-libLTLIBRARIES clean-libtool ctags distclean \
+	distclean-compile distclean-generic distclean-libtool \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am \
+	install-dist_install_non_pic_libSCRIPTS \
+	install-dist_install_pic_libSCRIPTS install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-includeHEADERS install-info install-info-am \
 	install-libLTLIBRARIES install-man install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-dist_install_libSCRIPTS \
+	tags uninstall uninstall-am \
+	uninstall-dist_install_non_pic_libSCRIPTS \
+	uninstall-dist_install_pic_libSCRIPTS uninstall-includeHEADERS \
 	uninstall-libLTLIBRARIES
 
 
-# $(libclmpi_a_LIB): $(libclmpi_a_OBJECTS)
-# 	$(stack_pmpi_DIR)/stack_pmpi $(libclmpi_a_STACK_PMPI_OBJECT) 0 $^
-# 	ar cr $@ $(libclmpi_a_STACK_PMPI_OBJECT)
-# 	ranlib $@
-
-# $(libclmpi_so_LIB): $(libclmpi_a_LIB)
-# 	$(MPICC) $(AM_CXXFLAGS) $(libclmpi_a_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) -shared -o $@ $(libclmpoi_a_STACK_PMPI_OBJECT)
 $(libclmpi_la_LIBRARY): $(libclmpi_la_OBJECTS) $(libclmpi_la_DEPENDENCIES) $(libclmpi_la_OBJECTS_O) $(libclmpi_la_LIBS_OBJECTS_O) 
 	$(stack_pmpi_DIR)/stack_pmpi $(libclmpi_la_STACK_PMPI_OBJECT_O) 0 $(libclmpi_la_OBJECTS_O)
 	$(stack_pmpi_DIR)/stack_pmpi $(libclmpi_la_LIBS_STACK_PMPI_OBJECT_O) 0 $(libclmpi_la_LIBS_OBJECTS_O)
-	head -n 2 ./libclmpi_la-clmpi.lo > $(libclmpi_la_OBJECT)
+	echo "# Generated by `$(abs_top_builddir)/libtool --version | head -n 1`" >  $(libclmpi_la_OBJECT)
 	echo "pic_object='$(libclmpi_la_LIBS_STACK_PMPI_OBJECT_O)'" >> $(libclmpi_la_OBJECT)
 	echo "non_pic_object='$(libclmpi_la_STACK_PMPI_OBJECT_O)'" >> $(libclmpi_la_OBJECT)
 	$(CXXLINK) -rpath $(libdir) $(libclmpi_la_OBJECT) $(libclmpi_la_LIBADD) $(LIBS)
 
-# $(libpbmpi_a_LIB): $(libpbmpi_a_OBJECTS)
-# 	$(stack_pmpi_DIR)/stack_pmpi $(libpbmpi_a_STACK_PMPI_OBJECT) 0 $^
-# 	ar cr $@ $(libpbmpi_a_STACK_PMPI_OBJECT)
-# 	ranlib $@
-
-# $(libpbmpi_so_LIB): $(libpbmpi_a_LIB)
-# 	$(MPICC) $(AM_CXXFLAGS) $(libpbmpi_a_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) -shared -o $@ $(libclmpoi_a_STACK_PMPI_OBJECT)
 $(libpbmpi_la_LIBRARY): $(libpbmpi_la_OBJECTS) $(libpbmpi_la_DEPENDENCIES) $(libpbmpi_la_OBJECTS_O) $(libpbmpi_la_LIBS_OBJECTS_O) 
 	$(stack_pmpi_DIR)/stack_pmpi $(libpbmpi_la_STACK_PMPI_OBJECT_O) 0 $(libpbmpi_la_OBJECTS_O)
 	$(stack_pmpi_DIR)/stack_pmpi $(libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O) 0 $(libpbmpi_la_LIBS_OBJECTS_O)
-	head -n 2 ./libpbmpi_la-pbmpi.lo > $(libpbmpi_la_OBJECT)
+	echo "# Generated by `$(abs_top_builddir)/libtool --version | head -n 1`" >  $(libpbmpi_la_OBJECT)
 	echo "pic_object='$(libpbmpi_la_LIBS_STACK_PMPI_OBJECT_O)'" >> $(libpbmpi_la_OBJECT)
 	echo "non_pic_object='$(libpbmpi_la_STACK_PMPI_OBJECT_O)'" >> $(libpbmpi_la_OBJECT)
 	$(CXXLINK) -rpath $(libdir) $(libpbmpi_la_OBJECT) $(libpbmpi_la_LIBADD) $(LIBS)
-
-all-local: $(libclmpi_a_LIB) $(libclmpi_so_LIB) $(libpbmpi_a_LIB) $(libpbmpi_so_LIB)
-
-clean-local:
-	-rm -f $(libclmpi_a_LIB) $(libclmpi_so_LIB) $(libclmpi_a_STACK_PMPI_OBJECT)
-	-rm -f $(libpbmpi_a_LIB) $(libpbmpi_so_LIB) $(libpbmpi_a_STACK_PMPI_OBJECT)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

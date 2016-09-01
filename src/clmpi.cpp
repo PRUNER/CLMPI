@@ -541,9 +541,10 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, 
 }
 
 
+#if 0
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
-  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
+  //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(request, 1);
   err=PMPI_Wait(request,status);
@@ -556,11 +557,12 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
   }
   return err;
 }
+#endif
 
 
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
 {
-  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
+  //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitany(count,array_of_requests,index,status);
@@ -576,7 +578,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
 
 int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *array_of_indices, MPI_Status *array_of_statuses)
 {
-  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
+  //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err,i;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Waitsome(count,array_of_requests,outcount,array_of_indices,array_of_statuses);
@@ -620,6 +622,10 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
   return err;
 }
 
+int mpi_test(MPI_Request *request, int *flag, MPI_Status *status)
+{
+
+}
 
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {
@@ -660,7 +666,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 
 int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag, MPI_Status *status)
 {
-  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
+  //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testany(count,array_of_requests,index,flag,status);
@@ -734,7 +740,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
 
 int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status *array_of_statuses)
 {
-  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
+  //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
   int err,i;
   clmpi_init_registered_clocks(array_of_requests, count);
   err=PMPI_Testall(count, array_of_requests, flag, array_of_statuses);
@@ -812,7 +818,7 @@ _EXTERN_C_ int PMPI_Scan(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype
 _EXTERN_C_ int MPI_Scan(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
+    //    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
     exit(1);  
     _wrap_py_return_val = PMPI_Scan(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
@@ -832,8 +838,7 @@ _EXTERN_C_ int PMPI_Gatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, vo
 _EXTERN_C_ int MPI_Gatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);  
+    //    fprintf(stderr, "CLMPI: %s is not supported yet", __func__); exit(1);  
     _wrap_py_return_val = PMPI_Gatherv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
   }    return _wrap_py_return_val;
 }
@@ -843,8 +848,7 @@ _EXTERN_C_ int PMPI_Reduce_scatter(const void *arg_0, void *arg_1, const int *ar
 _EXTERN_C_ int MPI_Reduce_scatter(const void *arg_0, void *arg_1, const int *arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);  
+    //    fprintf(stderr, "CLMPI: %s is not supported yet", __func__); exit(1);  
     _wrap_py_return_val = PMPI_Reduce_scatter(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
   }    return _wrap_py_return_val;
 }
@@ -854,8 +858,7 @@ _EXTERN_C_ int PMPI_Scatterv(const void *arg_0, const int *arg_1, const int *arg
 _EXTERN_C_ int MPI_Scatterv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, int arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);  
+    //    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);  exit(1);  
     _wrap_py_return_val = PMPI_Scatterv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
   }    return _wrap_py_return_val;
 }
@@ -865,8 +868,7 @@ _EXTERN_C_ int PMPI_Allgatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2,
 _EXTERN_C_ int MPI_Allgatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, MPI_Comm arg_7) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);
+    // fprintf(stderr, "CLMPI: %s is not supported yet", __func__);  exit(1);
     _wrap_py_return_val = PMPI_Allgatherv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
   }    return _wrap_py_return_val;
 }
@@ -876,8 +878,7 @@ _EXTERN_C_ int PMPI_Scatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, vo
 _EXTERN_C_ int MPI_Scatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);
+    // fprintf(stderr, "CLMPI: %s is not supported yet", __func__);   exit(1);
     _wrap_py_return_val = PMPI_Scatter(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
   }    return _wrap_py_return_val;
 }
@@ -897,8 +898,7 @@ _EXTERN_C_ int PMPI_Alltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, v
 _EXTERN_C_ int MPI_Alltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6) {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);
+    // fprintf(stderr, "CLMPI: %s is not supported yet", __func__);  exit(1);
     _wrap_py_return_val = PMPI_Alltoall(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
   }    return _wrap_py_return_val;
 }
@@ -930,8 +930,7 @@ _EXTERN_C_ int MPI_Alltoallv(const void *arg_0, const int *arg_1, const int *arg
 {
   int _wrap_py_return_val = 0;
   {
-    fprintf(stderr, "CLMPI: %s is not supported yet", __func__);
-    exit(1);
+    // fprintf(stderr, "CLMPI: %s is not supported yet", __func__);     exit(1);
     _wrap_py_return_val = PMPI_Alltoallv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
   }    return _wrap_py_return_val;
 }
