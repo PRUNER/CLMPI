@@ -25,7 +25,7 @@ AC_ARG_WITH([stack-pmpi],
             [stack_pmpi_DIR=$withval],
             [])
 if test "$stack_pmpi_DIR" = ""; then
-   AC_MSG_ERROR([This package needs stack_pmpi. (Option: --with-stack-pmpi=<path to stack_pmpi directory>)])
+   AC_MSG_ERROR([This package needs stack_pmpi (in STACKP). (Option: --with-stack-pmpi=<path to stack_pmpi directory>)])
 fi
 AC_SUBST(stack_pmpi_DIR)
 
