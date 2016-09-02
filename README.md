@@ -38,7 +38,7 @@ CLMPI has dependent a software:
     make 
     make install
 
-## 3. Run examples
+## 4. Run examples
 
 Assuming SLURM
 
