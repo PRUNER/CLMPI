@@ -52,3 +52,6 @@ For more details, run ./configure -h
 
   * `--with-stack-pmpi`: path to STACKP
 
+# Contact
+
+[Kento Sato](mailto:kento@llnl.gov).
