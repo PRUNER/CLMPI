@@ -1,19 +1,21 @@
+SUBDIRS = ../src
+
 noinst_PROGRAMS = \
-	clmpi_pingpong \
-	pbmpi_pingpong
+	clmpi_test \
+	pbmpi_test
 
 
-clmpi_pingpong_SOURCES = clmpi_pingpong.c util.c
-clmpi_pingpong_CPPFLAGS = -I../src
-clmpi_pingpong_LDFLAGS  = -L../src/.libs/ 
-clmpi_pingpong_LIBS  = -lclmpi
+#mpi_pingpong_perf_SOURCES = mpi_pingpong_perf.c util.c
+#mpi_pingpong_perf_CPPFLAGS = -I../src
+#mpi_pingpong_perf_LDFLAGS  = -L../src/.libs/ -lclmpi
 
-pbmpi_pingpong_SOURCES = clmpi_pingpong.c util.c
-pbmpi_pingpong_CPPFLAGS = -I../src
-pbmpi_pingpong_LDFLAGS  = -L../src/.libs/
-pbmpi_pingpong_LIBS  = -lpbmpi
+clmpi_test_SOURCES = clmpi_test.c util.c
+clmpi_test_CPPFLAGS = -I../src
+clmpi_test_LDFLAGS  = -L../src/.libs/ -lpbmpi
 
-
+pbmpi_test_SOURCES = pbmpi_test.c util.c
+pbmpi_test_CPPFLAGS = -I../src
+pbmpi_test_LDFLAGS  = -L../src/.libs/ -lpbmpi
 
 
 .PHONY: clean_core

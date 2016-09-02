@@ -87,6 +87,7 @@ static unordered_map<MPI_Request, MPI_Request*> irecv_request_map;
 static void clmpi_init_registered_clocks(MPI_Request *request, int length) {
   if (!sync_clock) return;
   
+  //  fprintf(stderr, "check reigstered: %p\n", registered_buff_clocks);
   if (registered_buff_clocks == NULL) {
     fprintf(stderr, "CLMPI: registered clock is NULL\n");
     *registered_buff_clocks = 1;
@@ -217,6 +218,44 @@ static void cmpi_update_local_sent_clock(MPI_Request tmp_req)
 }
 
 
+static int mpi_test(MPI_Request *request, int *flag, MPI_Status *status)
+{
+  int err;
+
+  MPI_Request req = *request;
+  clmpi_init_registered_clocks(request, 1);
+  err=PMPI_Test(request, flag, status);
+  
+  if (run_check==0) return err;
+  if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
+    if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
+      if (err == MPI_SUCCESS) cmpi_sync_clock(status);
+      //      fprintf(stderr, "CLMPI:  %d: request: %p -> %p\n", my_rank, req, *request);
+      clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
+    } else {
+      if (err == MPI_SUCCESS) {
+	if (registered_buff_clocks != NULL) {
+	  registered_buff_clocks[0] = PNMPI_MODULE_CLMPI_SEND_REQ_CLOCK;
+	}  else {
+	  fprintf(stderr, "registered_buff_clocks is NULL\n" );
+	  exit(1);
+	}
+
+#ifdef DBG_SC
+	MPI_Request tmp_req = COMM_REQ_FROM_STATUS(status).inreq;
+	cmpi_update_local_sent_clock(tmp_req);
+#endif
+      }
+
+    }
+  }
+
+  registered_buff_clocks = NULL;
+  registered_buff_length = -1;
+  return err;
+}
+
+
 
 int PNMPIMOD_get_recv_clocks(int *local_clock, int length)
 { 
@@ -225,10 +264,11 @@ int PNMPIMOD_get_recv_clocks(int *local_clock, int length)
 
 int PNMPIMOD_register_recv_clocks(size_t *clocks, int length)
 { 
+
   registered_buff_clocks = clocks;
   registered_buff_length = length;
   memset(clocks, 0, sizeof(size_t) * length);
-
+  //  fprintf(stderr, "reigstered: %p\n", registered_buff_clocks);
   return MPI_SUCCESS;
 }
 
@@ -541,7 +581,6 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, int dest, 
 }
 
 
-#if 0
 int MPI_Wait(MPI_Request *request, MPI_Status *status)
 {
   //  fprintf(stderr, "%s is not supported yet\n", __func__);  exit(1);
@@ -557,7 +596,8 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
   }
   return err;
 }
-#endif
+
+
 
 
 int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Status *status)
@@ -622,10 +662,7 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
   return err;
 }
 
-int mpi_test(MPI_Request *request, int *flag, MPI_Status *status)
-{
 
-}
 
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 {

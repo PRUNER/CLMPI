@@ -561,9 +561,7 @@ int MPI_Irecv(void* buf, int num, MPI_Datatype dtype, int node,
 	      int tag, MPI_Comm comm, MPI_Request *request)
 {
   int err;
-  PBMPI_DBG("source: %d, tag: %d", node, tag);
   err=PMPI_Irecv(buf,num,dtype,node,tag,comm, request);
-  PBMPI_DBGI(1, "request: %p", *request);
   irecv_request_map[*request] = request;  
 
   return err;

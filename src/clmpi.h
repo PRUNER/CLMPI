@@ -18,19 +18,25 @@ extern "C" {
 #endif
 typedef int (*PNMPIMOD_register_recv_clocks_t)(size_t*, int);
 int PNMPIMOD_register_recv_clocks(size_t*, int);
-//typedef int (*PNMPIMOD_set_local_clock_t)(size_t);
+#define CLMPI_register_recv_clocks PNMPIMOD_register_recv_clocks
 typedef int (*PNMPIMOD_clock_control_t)(size_t);
 int PNMPIMOD_clock_control(size_t);
+//#define CLMPI_clock_control PNMPIMOD_clock_control
 typedef int (*PNMPIMOD_sync_clock_t)(size_t);
 int PNMPIMOD_sync_clock(size_t);
+//#define CLMPI_sync_clock PNMPIMOD_sync_clock 
 typedef int (*PNMPIMOD_get_local_clock_t)(size_t*);
 int PNMPIMOD_get_local_clock(size_t*);
+#define CLMPI_get_local_clock PNMPIMOD_get_local_clock
 typedef int (*PNMPIMOD_get_local_sent_clock_t)(size_t*);
 int PNMPIMOD_get_local_sent_clock(size_t*);
+  //#define CLMPI_get_local_sent_clock PNMPIMOD_get_local_clock
 typedef int (*PNMPIMOD_collective_sync_clock_t)(MPI_Comm comm);
 int PNMPIMOD_collective_sync_clock(MPI_Comm comm);
+#define CLMPI_collective_sync_clock PNMPIMOD_collective_sync_clock
 typedef int (*PNMPIMOD_get_num_of_incomplete_sending_msg_t)(size_t*);
 int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t*);
+  //#define CLMPI_get_num_of_incomplete_sending_msg PNMPIMOD_get_num_of_incomplete_sending_msg
 void CLMPI_tick_clock();
 #ifdef __cplusplus
 }
