@@ -6,7 +6,7 @@
 #  foo LDFLAGS:  Additional linker flags
 # The default value for foo_XXXFLAGS is $(AM_XXXFLAGS).
 
-AM_CFLAGS = -fPIC -std=c++0x -pthread -g
+AM_CFLAGS = -fPIC -std=c++0x -pthread -g -lstdc++
 AM_CXXFLAGS = $(AM_CFLAGS)
 
 libclmpi_la_LIBRARY = libclmpi.la

@@ -11,11 +11,11 @@ noinst_PROGRAMS = \
 
 clmpi_test_SOURCES = clmpi_test.c util.c
 clmpi_test_CPPFLAGS = -I../src
-clmpi_test_LDFLAGS  = -L../src/.libs/ -lpbmpi
+clmpi_test_LDFLAGS  = -L../src/.libs/ -lclmpi -lstdc++ -std=c++0x
 
 pbmpi_test_SOURCES = pbmpi_test.c util.c
 pbmpi_test_CPPFLAGS = -I../src
-pbmpi_test_LDFLAGS  = -L../src/.libs/ -lpbmpi
+pbmpi_test_LDFLAGS  = -L../src/.libs/ -lpbmpi -lstdc++ -std=c++0x
 
 
 .PHONY: clean_core

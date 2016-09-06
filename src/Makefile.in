@@ -251,7 +251,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CFLAGS = -fPIC -std=c++0x -pthread -g
+AM_CFLAGS = -fPIC -std=c++0x -pthread -g -lstdc++
 AM_CXXFLAGS = $(AM_CFLAGS)
 libclmpi_la_LIBRARY = libclmpi.la
 libpbmpi_la_LIBRARY = libpbmpi.la
