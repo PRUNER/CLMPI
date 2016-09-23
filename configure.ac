@@ -29,6 +29,13 @@ if test "$stack_pmpi_DIR" = ""; then
 fi
 AC_SUBST(stack_pmpi_DIR)
 
+AC_ARG_WITH([bluegene],
+            [AS_HELP_STRING([--with-bluegene],
+              [build test code with static library])],
+            [with_bluegene=yes],
+            [with_bluegene=""])
+AM_CONDITIONAL([WITH_BLUEGENE], [test "$with_bluegene" = yes])
+
 #### Checks for programs.
 LX_FIND_MPI # TODO: AC_LANG_CASE([C++], ...) is not executed
 
@@ -46,7 +53,7 @@ AC_PROG_CC([mpicc])
 AM_PROG_CC_C_O([mpicc])
 AC_PROG_CXX([mpicc])
 AC_SUBST([CC], [$MPICC])
-AC_SUBST([CXX], [$MPICC])
+AC_SUBST([CXX],[$MPICC])
 
 AC_CHECK_PROGS([MPIF90], [mpif90], [:])
 if test "$MPIF90" = :; then

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "mpi.h"
 #include "util.h"
@@ -19,6 +20,7 @@ int main(int argc, char **argv)
   MPI_Request send_req, recv_req;
   int length[2] = {1, 8 * 1024 * 1024};
   size_t local_clock = 0, received_clock = 0, dummy;
+  MPI_Status status;
 
   s = get_dtime();
   MPI_Init(&argc, &argv);
@@ -36,6 +38,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "Pingpong message size(bytes)\tPingpong time(usec)\tPingpong throughput(MB/sec)\trepeat\n");
   }
 
+
   for (i = 0; i < 2; i++) {
     if (rank != left && rank != right) break;
 
@@ -43,25 +46,25 @@ int main(int argc, char **argv)
     tu_init_buf_int(send, length[i] / sizeof(int), rank);
     recv = (int*)malloc(length[i]);
     tu_init_buf_int(recv, length[i] / sizeof(int), rank);
-
     repeat = 500;
     s = get_dtime();
+
     for (j = 0; j < repeat; j++) {
 
       if (rank == left) {
 	MPI_Isend(send, length[i] / sizeof(int), MPI_INT, right, 0, MPI_COMM_WORLD, &send_req);
 	CLMPI_register_recv_clocks(&dummy, 1);
-	MPI_Wait(&send_req, NULL);
+	MPI_Wait(&send_req, &status);
 	MPI_Irecv(recv, length[i] / sizeof(int), MPI_INT, right, 0, MPI_COMM_WORLD, &recv_req);
 	CLMPI_register_recv_clocks(&received_clock, 1);
-	MPI_Wait(&recv_req, NULL);
+	MPI_Wait(&recv_req, &status);
       } else {
 	MPI_Irecv(recv, length[i] / sizeof(int), MPI_INT,  left, 0, MPI_COMM_WORLD, &recv_req);
 	CLMPI_register_recv_clocks(&received_clock, 1);
-	MPI_Wait(&recv_req, NULL);
+	MPI_Wait(&recv_req, &status);
 	MPI_Isend(send, length[i] / sizeof(int), MPI_INT,  left, 0, MPI_COMM_WORLD, &send_req);
 	CLMPI_register_recv_clocks(&dummy, 1);
-	MPI_Wait(&send_req, NULL);
+	MPI_Wait(&send_req, &status);
       }
     }
     e = get_dtime();

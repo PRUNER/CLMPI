@@ -34,7 +34,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-noinst_PROGRAMS = clmpi_test$(EXEEXT) pbmpi_test$(EXEEXT)
+noinst_PROGRAMS = mpi_test$(EXEEXT) clmpi_test$(EXEEXT) \
+	pbmpi_test$(EXEEXT)
 subdir = example
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -52,17 +53,20 @@ PROGRAMS = $(noinst_PROGRAMS)
 am_clmpi_test_OBJECTS = clmpi_test-clmpi_test.$(OBJEXT) \
 	clmpi_test-util.$(OBJEXT)
 clmpi_test_OBJECTS = $(am_clmpi_test_OBJECTS)
-clmpi_test_LDADD = $(LDADD)
+@WITH_BLUEGENE_TRUE@clmpi_test_DEPENDENCIES = ../src/.libs/libclmpi.a
 clmpi_test_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(clmpi_test_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(clmpi_test_CFLAGS) \
+	$(CFLAGS) $(clmpi_test_LDFLAGS) $(LDFLAGS) -o $@
+am_mpi_test_OBJECTS = mpi_test.$(OBJEXT) util.$(OBJEXT)
+mpi_test_OBJECTS = $(am_mpi_test_OBJECTS)
+mpi_test_LDADD = $(LDADD)
 am_pbmpi_test_OBJECTS = pbmpi_test-pbmpi_test.$(OBJEXT) \
 	pbmpi_test-util.$(OBJEXT)
 pbmpi_test_OBJECTS = $(am_pbmpi_test_OBJECTS)
-pbmpi_test_LDADD = $(LDADD)
+@WITH_BLUEGENE_TRUE@pbmpi_test_DEPENDENCIES = ../src/.libs/libpbmpi.a
 pbmpi_test_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(pbmpi_test_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(pbmpi_test_CFLAGS) \
+	$(CFLAGS) $(pbmpi_test_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__depfiles_maybe = depfiles
@@ -76,8 +80,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(clmpi_test_SOURCES) $(pbmpi_test_SOURCES)
-DIST_SOURCES = $(clmpi_test_SOURCES) $(pbmpi_test_SOURCES)
+SOURCES = $(clmpi_test_SOURCES) $(mpi_test_SOURCES) \
+	$(pbmpi_test_SOURCES)
+DIST_SOURCES = $(clmpi_test_SOURCES) $(mpi_test_SOURCES) \
+	$(pbmpi_test_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -251,12 +257,19 @@ SUBDIRS = ../src
 #mpi_pingpong_perf_SOURCES = mpi_pingpong_perf.c util.c
 #mpi_pingpong_perf_CPPFLAGS = -I../src
 #mpi_pingpong_perf_LDFLAGS  = -L../src/.libs/ -lclmpi
+mpi_test_SOURCES = mpi_test.c util.c
 clmpi_test_SOURCES = clmpi_test.c util.c
+clmpi_test_CFLAGS = -g	
 clmpi_test_CPPFLAGS = -I../src
-clmpi_test_LDFLAGS = -L../src/.libs/ -lclmpi -lstdc++ -std=c++0x
+@WITH_BLUEGENE_TRUE@clmpi_test_LDADD = ../src/.libs/libclmpi.a
+@WITH_BLUEGENE_FALSE@clmpi_test_LDFLAGS = -L../src/.libs/ -lstdc++ -std=c++0x -lclmpi 
+@WITH_BLUEGENE_TRUE@clmpi_test_LDFLAGS = -lstdc++ -std=c++0x
 pbmpi_test_SOURCES = pbmpi_test.c util.c
+pbmpi_test_CFLAGS = -g	
 pbmpi_test_CPPFLAGS = -I../src
-pbmpi_test_LDFLAGS = -L../src/.libs/ -lpbmpi -lstdc++ -std=c++0x
+@WITH_BLUEGENE_TRUE@pbmpi_test_LDADD = ../src/.libs/libpbmpi.a
+@WITH_BLUEGENE_FALSE@pbmpi_test_LDFLAGS = -L../src/.libs/ -lstdc++ -std=c++0x -lpbmpi 
+@WITH_BLUEGENE_TRUE@pbmpi_test_LDFLAGS = -lstdc++ -std=c++0x
 all: all-recursive
 
 .SUFFIXES:
@@ -303,6 +316,9 @@ clean-noinstPROGRAMS:
 clmpi_test$(EXEEXT): $(clmpi_test_OBJECTS) $(clmpi_test_DEPENDENCIES) 
 	@rm -f clmpi_test$(EXEEXT)
 	$(clmpi_test_LINK) $(clmpi_test_OBJECTS) $(clmpi_test_LDADD) $(LIBS)
+mpi_test$(EXEEXT): $(mpi_test_OBJECTS) $(mpi_test_DEPENDENCIES) 
+	@rm -f mpi_test$(EXEEXT)
+	$(LINK) $(mpi_test_OBJECTS) $(mpi_test_LDADD) $(LIBS)
 pbmpi_test$(EXEEXT): $(pbmpi_test_OBJECTS) $(pbmpi_test_DEPENDENCIES) 
 	@rm -f pbmpi_test$(EXEEXT)
 	$(pbmpi_test_LINK) $(pbmpi_test_OBJECTS) $(pbmpi_test_LDADD) $(LIBS)
@@ -315,8 +331,10 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clmpi_test-clmpi_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clmpi_test-util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mpi_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbmpi_test-pbmpi_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbmpi_test-util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -340,60 +358,60 @@ distclean-compile:
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
 clmpi_test-clmpi_test.o: clmpi_test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT clmpi_test-clmpi_test.o -MD -MP -MF $(DEPDIR)/clmpi_test-clmpi_test.Tpo -c -o clmpi_test-clmpi_test.o `test -f 'clmpi_test.c' || echo '$(srcdir)/'`clmpi_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -MT clmpi_test-clmpi_test.o -MD -MP -MF $(DEPDIR)/clmpi_test-clmpi_test.Tpo -c -o clmpi_test-clmpi_test.o `test -f 'clmpi_test.c' || echo '$(srcdir)/'`clmpi_test.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/clmpi_test-clmpi_test.Tpo $(DEPDIR)/clmpi_test-clmpi_test.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='clmpi_test.c' object='clmpi_test-clmpi_test.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o clmpi_test-clmpi_test.o `test -f 'clmpi_test.c' || echo '$(srcdir)/'`clmpi_test.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -c -o clmpi_test-clmpi_test.o `test -f 'clmpi_test.c' || echo '$(srcdir)/'`clmpi_test.c
 
 clmpi_test-clmpi_test.obj: clmpi_test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT clmpi_test-clmpi_test.obj -MD -MP -MF $(DEPDIR)/clmpi_test-clmpi_test.Tpo -c -o clmpi_test-clmpi_test.obj `if test -f 'clmpi_test.c'; then $(CYGPATH_W) 'clmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/clmpi_test.c'; fi`
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -MT clmpi_test-clmpi_test.obj -MD -MP -MF $(DEPDIR)/clmpi_test-clmpi_test.Tpo -c -o clmpi_test-clmpi_test.obj `if test -f 'clmpi_test.c'; then $(CYGPATH_W) 'clmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/clmpi_test.c'; fi`
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/clmpi_test-clmpi_test.Tpo $(DEPDIR)/clmpi_test-clmpi_test.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='clmpi_test.c' object='clmpi_test-clmpi_test.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o clmpi_test-clmpi_test.obj `if test -f 'clmpi_test.c'; then $(CYGPATH_W) 'clmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/clmpi_test.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -c -o clmpi_test-clmpi_test.obj `if test -f 'clmpi_test.c'; then $(CYGPATH_W) 'clmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/clmpi_test.c'; fi`
 
 clmpi_test-util.o: util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT clmpi_test-util.o -MD -MP -MF $(DEPDIR)/clmpi_test-util.Tpo -c -o clmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -MT clmpi_test-util.o -MD -MP -MF $(DEPDIR)/clmpi_test-util.Tpo -c -o clmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/clmpi_test-util.Tpo $(DEPDIR)/clmpi_test-util.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='clmpi_test-util.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o clmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -c -o clmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
 
 clmpi_test-util.obj: util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT clmpi_test-util.obj -MD -MP -MF $(DEPDIR)/clmpi_test-util.Tpo -c -o clmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -MT clmpi_test-util.obj -MD -MP -MF $(DEPDIR)/clmpi_test-util.Tpo -c -o clmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/clmpi_test-util.Tpo $(DEPDIR)/clmpi_test-util.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='clmpi_test-util.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o clmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(clmpi_test_CPPFLAGS) $(CPPFLAGS) $(clmpi_test_CFLAGS) $(CFLAGS) -c -o clmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
 
 pbmpi_test-pbmpi_test.o: pbmpi_test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pbmpi_test-pbmpi_test.o -MD -MP -MF $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo -c -o pbmpi_test-pbmpi_test.o `test -f 'pbmpi_test.c' || echo '$(srcdir)/'`pbmpi_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -MT pbmpi_test-pbmpi_test.o -MD -MP -MF $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo -c -o pbmpi_test-pbmpi_test.o `test -f 'pbmpi_test.c' || echo '$(srcdir)/'`pbmpi_test.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo $(DEPDIR)/pbmpi_test-pbmpi_test.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pbmpi_test.c' object='pbmpi_test-pbmpi_test.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbmpi_test-pbmpi_test.o `test -f 'pbmpi_test.c' || echo '$(srcdir)/'`pbmpi_test.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -c -o pbmpi_test-pbmpi_test.o `test -f 'pbmpi_test.c' || echo '$(srcdir)/'`pbmpi_test.c
 
 pbmpi_test-pbmpi_test.obj: pbmpi_test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pbmpi_test-pbmpi_test.obj -MD -MP -MF $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo -c -o pbmpi_test-pbmpi_test.obj `if test -f 'pbmpi_test.c'; then $(CYGPATH_W) 'pbmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/pbmpi_test.c'; fi`
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -MT pbmpi_test-pbmpi_test.obj -MD -MP -MF $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo -c -o pbmpi_test-pbmpi_test.obj `if test -f 'pbmpi_test.c'; then $(CYGPATH_W) 'pbmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/pbmpi_test.c'; fi`
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/pbmpi_test-pbmpi_test.Tpo $(DEPDIR)/pbmpi_test-pbmpi_test.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pbmpi_test.c' object='pbmpi_test-pbmpi_test.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbmpi_test-pbmpi_test.obj `if test -f 'pbmpi_test.c'; then $(CYGPATH_W) 'pbmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/pbmpi_test.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -c -o pbmpi_test-pbmpi_test.obj `if test -f 'pbmpi_test.c'; then $(CYGPATH_W) 'pbmpi_test.c'; else $(CYGPATH_W) '$(srcdir)/pbmpi_test.c'; fi`
 
 pbmpi_test-util.o: util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pbmpi_test-util.o -MD -MP -MF $(DEPDIR)/pbmpi_test-util.Tpo -c -o pbmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -MT pbmpi_test-util.o -MD -MP -MF $(DEPDIR)/pbmpi_test-util.Tpo -c -o pbmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/pbmpi_test-util.Tpo $(DEPDIR)/pbmpi_test-util.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='pbmpi_test-util.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -c -o pbmpi_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
 
 pbmpi_test-util.obj: util.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pbmpi_test-util.obj -MD -MP -MF $(DEPDIR)/pbmpi_test-util.Tpo -c -o pbmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -MT pbmpi_test-util.obj -MD -MP -MF $(DEPDIR)/pbmpi_test-util.Tpo -c -o pbmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/pbmpi_test-util.Tpo $(DEPDIR)/pbmpi_test-util.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='pbmpi_test-util.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pbmpi_test_CPPFLAGS) $(CPPFLAGS) $(pbmpi_test_CFLAGS) $(CFLAGS) -c -o pbmpi_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

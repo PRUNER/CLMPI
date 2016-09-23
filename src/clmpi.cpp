@@ -115,7 +115,7 @@ static void clmpi_irecv_test_erase(MPI_Request request) {
 
 int tick = 1;
 
-static void clmpi_tick_clock()
+void clmpi_tick_clock()
 {
   if (sync_clock) {
     pb_clocks->local_clock += tick;
@@ -135,9 +135,6 @@ static void clmpi_update_clock(size_t recv_clock) {
   if (sync_clock) {
     if (pb_clocks->local_clock <= recv_clock) {
       pb_clocks->local_clock = recv_clock;
-      //      tick++;
-    } else {
-      //      if (tick > 1) tick--;
     }
     clmpi_tick_clock();
   }
@@ -609,7 +606,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
   if (run_check==0) return err;
   if (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-	  if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0, *index); 
 	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
       }
   }
@@ -692,8 +689,9 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 	cmpi_update_local_sent_clock(tmp_req);
 #endif
       }
-
-    }
+    } 
+  } else {
+    //    clmpi_tick_clock();
   }
 
   registered_buff_clocks = NULL;
@@ -710,7 +708,8 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-      if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
+      if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0, *index); 
+      //      if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
       if (err == MPI_SUCCESS) {
@@ -722,6 +721,8 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
 	}
       }
     }
+  } else {
+    //    clmpi_tick_clock();
   }
 
   registered_buff_clocks = NULL;
@@ -769,6 +770,10 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
     }
   }
 
+  if (*outcount == 0) {
+    //    clmpi_tick_clock();
+  }
+
   registered_buff_clocks = NULL;
   registered_buff_length = -1;
 
@@ -800,6 +805,8 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
 	}
       } 
     }
+  } else {
+    //    clmpi_tick_clock();
   }
 
   registered_buff_clocks = NULL;
