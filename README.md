@@ -34,7 +34,15 @@ CLMPI has dependent a software:
 
 ## 3. Build ReMPI
 
+### Build ReMPI (Linux)
+
     ./configure --prefix=<path to installation directory> --with-stack-pmpi=<path to STACKP directory>
+    make 
+    make install
+
+### Build ReMPI (BG/Q)
+
+    ./configure --prefix=<path to installation directory> --with-stack-pmpi=<path to STACKP directory> --with-bluegene
     make 
     make install
 
@@ -51,6 +59,7 @@ Assuming SLURM
 For more details, run ./configure -h  
 
   * `--with-stack-pmpi`: path to STACKP
+  * `--with-bluegene`: (Required in BG/Q)
 
 # Contact
 

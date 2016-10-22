@@ -1,7 +1,6 @@
 SUBDIRS = ../src
 
 noinst_PROGRAMS = \
-	mpi_test   \
 	clmpi_test \
 	pbmpi_test
 
@@ -10,8 +9,6 @@ noinst_PROGRAMS = \
 #mpi_pingpong_perf_SOURCES = mpi_pingpong_perf.c util.c
 #mpi_pingpong_perf_CPPFLAGS = -I../src
 #mpi_pingpong_perf_LDFLAGS  = -L../src/.libs/ -lclmpi
-
-mpi_test_SOURCES  = mpi_test.c util.c
 
 clmpi_test_SOURCES  = clmpi_test.c util.c
 clmpi_test_CFLAGS   = -g	
