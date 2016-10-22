@@ -40,7 +40,7 @@ static size_t local_sent_clock = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
 static unordered_map<MPI_Request, size_t> request_to_local_clock;
 #endif
 
-static pb_clocks_t *pb_clocks;
+static pb_clocks_t *pb_clocks = NULL;
 
 static size_t local_tick = 0;
 static char *pbdata;
@@ -165,30 +165,51 @@ static void cmpi_pring_addr()
   free(strings);
 }
 
-static void cmpi_sync_clock_at(MPI_Status *status, int count, int i, int matched_index)
+static void cmpi_sync_clock_at(MPI_Status *status, int count, int i)
 {
-  size_t sender_clock;		
-  sender_clock = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, count, i);
-  if (registered_buff_clocks != NULL) {
-    if (registered_buff_length != count) {
-      fprintf(stderr, "Registered clock buffufer lengths (%d) is different to incount (%d)", 
-		registered_buff_length, count);
-    }
-    registered_buff_clocks[matched_index] = sender_clock;
+  size_t event_clock;		
+  if (status != NULL){
+    /* Matched test */
+    event_clock = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, count, i);
+  } else {
+    /* Unmatched test */
+    event_clock = pb_clocks->local_clock;
   }
-  clmpi_update_clock(sender_clock);
+
+  if (registered_buff_clocks != NULL && registered_buff_length != count) {
+      CLMPI_ERR("Registered clock buffufer lengths (%d) is different to incount (%d)", 
+		registered_buff_length, count);
+  }
+
+  if (registered_buff_clocks != NULL) {
+    registered_buff_clocks[i] = event_clock;
+  } else {
+    if (!sync_clock) {
+      //      REMPI_DBG("registered_buff_clocks is NULL");
+    }
+  }
+  clmpi_update_clock(event_clock);
+
   return; 
 }
 
+
 static void cmpi_sync_clock(MPI_Status *status)
 {
-  cmpi_sync_clock_at(status, 1, 0, 0);
+  cmpi_sync_clock_at(status, 1, 0);
   return;
 }
 
 static void cmpi_set_tick()
 {
   local_tick = 1;
+}
+
+void CLMPI_set_pb_clock(size_t *clock)
+{
+  if (pb_clocks != NULL) free(pb_clocks);
+  pb_clocks = (struct pb_clocks*) clock;
+  return;
 }
 
 static void cmpi_init_pb_clock()
@@ -261,7 +282,6 @@ int PNMPIMOD_get_recv_clocks(int *local_clock, int length)
 
 int PNMPIMOD_register_recv_clocks(size_t *clocks, int length)
 { 
-
   registered_buff_clocks = clocks;
   registered_buff_length = length;
   memset(clocks, 0, sizeof(size_t) * length);
@@ -606,7 +626,7 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests, int *index, MPI_Statu
   if (run_check==0) return err;
   if (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0, *index); 
+	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0); 
 	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
       }
   }
@@ -623,7 +643,7 @@ int MPI_Waitsome(int count, MPI_Request *array_of_requests, int *outcount, int *
   for (i=0; i<*outcount; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)  {
-	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, array_of_indices[i]); 
+	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i); 
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       }
     }
@@ -643,7 +663,7 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests, MPI_Status *array_of_
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL)  {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV)   {
 	//	/* Loop: #1 ->*/ clmpi_init_registered_clocks(&array_of_requests[i], 1);
-	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
+	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i); 
 	//	fprintf(stderr, "rank %d: call erase at waitall: Request: %p\n", my_rank, array_of_requests[0]);
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
 	//	fprintf(stderr, "rank %d: call erase end at waitall\n", my_rank);
@@ -691,7 +711,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
       }
     } 
   } else {
-    //    clmpi_tick_clock();
+    //    cmpi_sync_clock(NULL);
   }
 
   registered_buff_clocks = NULL;
@@ -708,7 +728,7 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
   if (run_check==0) return err;
   if ((*flag) && (COMM_REQ_FROM_STATUS(status).inreq!=MPI_REQUEST_NULL)) {
     if (COMM_REQ_FROM_STATUS(status).type==PNMPIMOD_REQUESTS_RECV) {
-      if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0, *index); 
+      if (err == MPI_SUCCESS) cmpi_sync_clock_at(status, 1, 0); 
       //      if (err == MPI_SUCCESS) cmpi_sync_clock(status); 
       clmpi_irecv_test_erase(COMM_REQ_FROM_STATUS(status).inreq);
     } else {
@@ -722,7 +742,7 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index, int *flag
       }
     }
   } else {
-    //    clmpi_tick_clock();
+    //    cmpi_sync_clock(NULL);
   }
 
   registered_buff_clocks = NULL;
@@ -746,7 +766,7 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
   for (i=0; i<*outcount; i++) {
     if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL) {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV) {
-	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, array_of_indices[i]); 
+	if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i); 
 	clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
       } else {
 	if (err == MPI_SUCCESS) {
@@ -770,8 +790,8 @@ int MPI_Testsome(int count, MPI_Request *array_of_requests, int *outcount, int *
     }
   }
 
-  if (*outcount == 0) {
-    //    clmpi_tick_clock();
+  if (*outcount == 0) { 
+    //    cmpi_sync_clock_at(NULL, count, 0);
   }
 
   registered_buff_clocks = NULL;
@@ -791,7 +811,7 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
     for (i=0; i<count; i++) {
       if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq!=MPI_REQUEST_NULL)  {
 	if (COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).type==PNMPIMOD_REQUESTS_RECV) {
-	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i, i); 
+	  if (err == MPI_SUCCESS) cmpi_sync_clock_at(array_of_statuses, count, i); 
 	  clmpi_irecv_test_erase(COMM_REQ_FROM_STATUSARRAY(array_of_statuses,count,i).inreq);
 	} else {
 	  if (err == MPI_SUCCESS) {
@@ -806,7 +826,7 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag, MPI_Status
       } 
     }
   } else {
-    //    clmpi_tick_clock();
+    //    cmpi_sync_clock_at(NULL, count, 0);
   }
 
   registered_buff_clocks = NULL;
@@ -819,10 +839,27 @@ int MPI_Get_count(mpi_const MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2)
 {
   int _wrap_py_return_val = 0;
   {
-    /*TODO: arg_2 include piggyback message size, so subtract the size
-     for now, we subtract in REMPI level, not here*/
-    _wrap_py_return_val = PMPI_Get_count(arg_0, arg_1, arg_2);
-  }    return _wrap_py_return_val;
+    int bytes;
+    int datatype_size;
+    _wrap_py_return_val = PMPI_Get_count(arg_0, MPI_BYTE, &bytes);
+    bytes -= pb_size;
+    _wrap_py_return_val = PMPI_Type_size(arg_1, &datatype_size);
+    *arg_2 = bytes / datatype_size;
+  }    
+  return _wrap_py_return_val;
+}
+
+int MPI_Get_elements(mpi_const MPI_Status *arg_0, MPI_Datatype arg_1, int *arg_2)
+{
+  int _wrap_py_return_val = 0;
+  {
+    int count;
+    int datatype_size;
+    _wrap_py_return_val = PMPI_Get_elements(arg_0, arg_1, arg_2);
+    _wrap_py_return_val = PMPI_Type_size(MPI_CHAR, &datatype_size);
+    *arg_2 -= pb_size / datatype_size;
+  }    
+  return _wrap_py_return_val;
 }
 
 

@@ -11,7 +11,14 @@
 
 #define CLMPI_DBG(format, ...) \
   do { \
-  fprintf(stderr, "CLMPI:%d: " format " (%s:%d)\n", my_rank, ## __VA_ARGS__, __FILE__, __LINE__); \
+      fprintf(stderr, "CLMPI:DEBUG:%d: " format " (%s:%d)\n", my_rank, ## __VA_ARGS__, __FILE__, __LINE__); \
+  } while (0)
+
+
+#define CLMPI_ERR(format, ...) \
+  do { \
+      fprintf(stderr, "CLMPI:ERROR:%d: " format " (%s:%d)\n", my_rank, ## __VA_ARGS__, __FILE__, __LINE__); \
+      exit(1); \
   } while (0)
 
 #endif

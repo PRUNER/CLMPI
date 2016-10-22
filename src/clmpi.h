@@ -25,7 +25,7 @@ int PNMPIMOD_register_recv_clocks(size_t*, int);
 
 typedef int (*PNMPIMOD_clock_control_t)(size_t);
 int PNMPIMOD_clock_control(size_t);
-//#define CLMPI_clock_control PNMPIMOD_clock_control
+#define CLMPI_clock_control PNMPIMOD_clock_control
 
 typedef int (*PNMPIMOD_sync_clock_t)(size_t);
 int PNMPIMOD_sync_clock(size_t);
@@ -50,6 +50,7 @@ int PNMPIMOD_get_num_of_incomplete_sending_msg(size_t*);
 void CLMPI_tick_clock();
 void clmpi_tick_clock();
 void CLMPI_configure(size_t flags);
+void CLMPI_set_pb_clock(size_t *clock);
 
 #ifdef __cplusplus
 }

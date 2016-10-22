@@ -183,7 +183,10 @@ void CLMPI_tick_clock()
   return;
 }
 
-static void clmpi_update_clock(size_t recv_clock) {
+static void clmpi_update_clock(size_t recv_clock) 
+{
+  fprintf(stderr, "laksdjfk\n");
+  
   if (sync_clock) {
     if (pb_clocks->local_clock <= recv_clock) {
       pb_clocks->local_clock = recv_clock;
@@ -229,7 +232,7 @@ static void cmpi_sync_clock_at(MPI_Status *status, int count, int i, int matched
 {
   
   if (registered_buff_clocks != NULL && registered_buff_length == count) {  
-    registered_buff_clocks[matched_index] = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, count, i);
+    registered_buff_clocks[i] = STATUS_STORAGE_ARRAY(status,*pb_offset, *TotalStatusExtension, size_t, count, i);
     // if (registered_buff_length != count) {
     //   fprintf(stderr, "Registered clock buffufer lengths (%d) is different to incount (%d)\n", 
     // 		registered_buff_length, count);
