@@ -109,8 +109,10 @@ static void clmpi_irecv_test_erase(MPI_Request request) {
   if (irecv_request_map.find(request) == irecv_request_map.end()) {
     fprintf(stderr, "CLMPI:  %d: request: %p does not exist\n", my_rank, (void*)request);
     exit(1);
+  } else {
+    irecv_request_map.erase(request);
   }
-  irecv_request_map.erase(request);
+  return;
 }
 
 int tick = 1;
@@ -207,18 +209,21 @@ static void cmpi_set_tick()
 
 void CLMPI_set_pb_clock(size_t *clock)
 {
-  if (pb_clocks != NULL) free(pb_clocks);
+  //  fprintf(stderr, "CLMPI 3: %p", pb_clocks);
+  //  if (pb_clocks != NULL) free(pb_clocks);
   pb_clocks = (struct pb_clocks*) clock;
   return;
 }
 
 static void cmpi_init_pb_clock()
 {
+  //  fprintf(stderr, "CLMPI 1: %p", pb_clocks);
   pb_clocks    = (struct pb_clocks*) malloc(sizeof(struct pb_clocks));
   if (pb_clocks == NULL) {
     fprintf(stderr, "clmpi malloc failed\n");
   }
   pb_clocks->local_clock   = PNMPI_MODULE_CLMPI_INITIAL_CLOCK;
+  //  fprintf(stderr, "CLMPI 2: %p", pb_clocks);
   return;
 }
 
