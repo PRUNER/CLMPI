@@ -17,7 +17,7 @@ This package also contain PBMPI (Piggyback MPI). PBMPI is a PMPI wrapper to send
 
 CLMPI has dependent a software:
 
- * STACKP
+ * StackP: https://github.com/PRUNER/StackP
 
 ## 2. Get source code 
 
